@@ -24,13 +24,13 @@ const MEMBER_ROLE_ID = process.env.MEMBER_ROLE_ID;
 const VIP_ROLE_ID = process.env.VIP_ROLE_ID;
 const OWNER_ROLE_ID = process.env.OWNER_ROLE_ID;
 
-// Rota de autenticação do Discord - ESSA ESTÁ FALTANDO!
+// Rota de autenticação do Discord
 app.get('/auth/discord', (req, res) => {
     const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds%20guilds.members.read`;
     res.redirect(discordAuthUrl);
 });
 
-// Rota de callback do Discord - ESSA ESTÁ FALTANDO!
+// Rota de callback do Discord
 app.get('/auth/callback', async (req, res) => {
     const code = req.query.code;
     
@@ -39,7 +39,6 @@ app.get('/auth/callback', async (req, res) => {
     }
 
     try {
-        // Trocar code por access token
         const data = {
             client_id: CLIENT_ID,
             client_secret: CLIENT_SECRET,
@@ -52,15 +51,12 @@ app.get('/auth/callback', async (req, res) => {
         const response = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
             body: new URLSearchParams(data),
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         });
 
         const json = await response.json();
         
         if (response.ok) {
-            // Redirecionar com o token para o frontend
             res.redirect(`${FRONTEND_URL}/?token=${json.access_token}`);
         } else {
             res.redirect(`${FRONTEND_URL}/?error=${json.error}`);
@@ -71,119 +67,108 @@ app.get('/auth/callback', async (req, res) => {
     }
 });
 
-// Rota para trocar code por token (mantida para compatibilidade)
+// Rota para trocar code por token
 app.post('/api/exchange-token', async (req, res) => {
-  const { code } = req.body;
+    const { code } = req.body;
 
-  if (!code) {
-    return res.status极速飞艇玩法
-    (400).json({ error: 'Código não fornecido' });
-  }
-
-  try {
-    const data = {
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      grant_type: 'authorization_code',
-      code: code,
-      redirect_uri: REDIRECT_URI,
-      scope: 'identify guilds guilds.members.read'
-    };
-
-    const response = await fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      body: new URLSearchParams(data),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
-
-    const json = await response.json();
-    
-    if (response.ok) {
-      res.json({ access_token: json.access_token });
-    } else {
-      res.status(400).json({ error: json.error_description });
+    if (!code) {
+        return res.status(400).json({ error: 'Código não fornecido' });
     }
-  } catch (error) {
-    console.error('Erro ao trocar token:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
+
+    try {
+        const data = {
+            client_id: CLIENT_ID,
+            client_secret: CLIENT_SECRET,
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: REDIRECT_URI,
+            scope: 'identify guilds guilds.members.read'
+        };
+
+        const response = await fetch('https://discord.com/api/oauth2/token', {
+            method: 'POST',
+            body: new URLSearchParams(data),
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        });
+
+        const json = await response.json();
+        
+        if (response.ok) {
+            res.json({ access_token: json.access_token });
+        } else {
+            res.status(400).json({ error: json.error_description });
+        }
+    } catch (error) {
+        console.error('Erro ao trocar token:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
 });
 
 // Rota para obter informações do usuário e cargos
 app.get('/api/user-info', async (req, res) => {
-  const authHeader = req.headers.authorization;
+    const authHeader = req.headers.authorization;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token não fornecido' });
-  }
-
-  const token = authHeader.substring(7);
-
-  try {
-    // Obter informações do usuário
-    const userResponse = await fetch('极速飞艇玩法
-    'https://discord.com/api/users/@me', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!userResponse.ok) {
-      return res.status(401).json({ error: 'Token inválido' });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Token não fornecido' });
     }
 
-    const user = await userResponse.json();
+    const token = authHeader.substring(7);
 
-    // Verificar se o usuário está no servidor
-    const memberResponse = await fetch(`https://discord.com/api/users/@me/guilds/${SERVER_ID}/member`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    try {
+        const userResponse = await fetch('https://discord.com/api/users/@me', {
+            headers: { Authorization: `Bearer ${token}` },
+        });
 
-    if (!memberResponse.ok) {
-      return res.status(403).json({ error: 'Usuário não está no servidor' });
+        if (!userResponse.ok) {
+            return res.status(401).json({ error: 'Token inválido' });
+        }
+
+        const user = await userResponse.json();
+
+        const memberResponse = await fetch(`https://discord.com/api/users/@me/guilds/${SERVER_ID}/member`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!memberResponse.ok) {
+            return res.status(403).json({ error: 'Usuário não está no servidor' });
+        }
+
+        const member = await memberResponse.json();
+        const roles = member.roles || [];
+
+        const isMember = roles.includes(MEMBER_ROLE_ID) || roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
+        const isVip = roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
+
+        if (!isMember) {
+            return res.status(403).json({ error: 'Acesso negado. Você precisa ser membro do servidor.' });
+        }
+
+        res.json({
+            userId: user.id,
+            username: user.username,
+            avatar: user.avatar,
+            roles: roles,
+            isVip,
+            isMember,
+            canAccess: isMember
+        });
+
+    } catch (error) {
+        console.error('Erro ao obter informações do usuário:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
-
-    const member = await memberResponse.json();
-    const roles = member.roles || [];
-
-    // Verificar se é membro (tem o cargo de membro ou superior)
-    const isMember = roles.includes(MEMBER_ROLE_ID) || roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
-    const isVip = roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
-
-    if (!isMember) {
-      return res.status(403).json({ error: 'Acesso negado. Você precisa ser membro do servidor.' });
-    }
-
-    res.json({
-      userId: user.id,
-      username: user.username,
-      avatar: user.avatar,
-      roles: roles,
-      isVip: isVip,
-      isMember: isMember,
-      canAccess: isMember
-    });
-
-  } catch (error) {
-    console.error('Erro ao obter informações do usuário:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
 });
 
 // Health check
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Rota para servir o frontend (se necessário)
+// Rota para servir o frontend
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+    console.log(`Servidor rodando na porta ${PORT}`);
 });
