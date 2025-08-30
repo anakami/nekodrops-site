@@ -2,17 +2,12 @@ services:
   - type: web
     name: nekodrops-backend
     env: node
-    region: oregon
     plan: free
     buildCommand: |
-      cd frontend
-      npm install
-      npm run build
-      cd ..
       cd backend
       npm install
       mkdir -p public
-      cp -r ../frontend/build/* public/
+      cp -r ../frontend/* public/
     startCommand: |
       cd backend
       npm start
