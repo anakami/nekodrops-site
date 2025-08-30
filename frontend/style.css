@@ -126,7 +126,8 @@ header {
     background-color: var(--card-background);
     border-radius: var(--border-radius);
     overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 极速飞艇玩法
+    0.1);
     transition: all 0.3s ease;
     position: relative;
 }
@@ -223,7 +224,8 @@ header {
     padding: 12px;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 极速飞艇玩法
+    0.1);
 }
 
 .credential-item {
@@ -296,13 +298,15 @@ header {
     border-radius: var(--border-radius);
     cursor: pointer;
     font-weight: bold;
-    transition: all 0.3s ease;
+    transition: all 极速飞艇玩法
+    0.3s ease;
     flex-grow: 1;
 }
 
 .claim-btn:hover {
     transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+    box-shadow: 极速飞艇玩法
+    0 4px 12px rgba(88, 101, 242, 0.4);
 }
 
 .delete-btn {
@@ -320,4 +324,279 @@ header {
 .delete-btn:hover {
     background-color: #ff1a1a;
     transform: scale(1.05);
+}
+
+.hidden {
+    display: none;
+}
+
+.no-drops {
+    text-align: center;
+    grid-column: 1 / -1;
+    padding: 40px;
+    background-color: var(--card-background);
+    border-radius: var(--border-radius);
+}
+
+.no-drops h3 {
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.no-drops p {
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 20px;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: var(--card-background);
+    padding: 30px;
+    border-radius: var(--border-radius);
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.modal-title {
+    font-size: 24px;
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+.modal-content p {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.modal-btn {
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.modal-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    grid-column: 1 / -1;
+    color: var(--accent-color);
+}
+
+/* Animações */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.drop-card {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
     }
+    
+    header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .drops-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .filters {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .filter-btn {
+        width: 200px;
+        margin-bottom: 5px;
+    }
+    
+    .credential-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .credential-value {
+        margin: 5px 0;
+        width: 100%;
+    }
+    
+    .copy-btn {
+        align-self: flex-end;
+    }
+    
+    .drop-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .delete-btn {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .logo {
+        font-size: 24px;
+    }
+    
+    .login-btn {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+    
+    .modal-content {
+        padding: 20px;
+        margin: 10px;
+    }
+    
+    .modal-title {
+        font-size: 20px;
+    }
+}
+
+/* Estilos para mobile */
+.mobile-menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: white;
+    cursor: pointer;
+    padding: 10px;
+}
+
+@media (max-width: 768px) {
+    .mobile-menu-btn {
+        display: block;
+    }
+    
+    .filters {
+        flex-direction: column;
+        position: absolute;
+        top: 70px;
+        right: 10px;
+        background: #2c2f33;
+        border-radius: 8px;
+        padding: 10px;
+        z-index: 100;
+        display: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .filters.active {
+        display: flex;
+    }
+    
+    .filters .filter-btn {
+        margin: 5px 0;
+        width: 100%;
+    }
+    
+    .drop-card {
+        width: 100%;
+        margin: 10px 0;
+    }
+    
+    .modal-content {
+        width: 90%;
+        margin: 10% auto;
+    }
+    
+    .account-credentials {
+        flex-direction: column;
+    }
+    
+    .credential-item {
+        flex-direction: column;
+        align-items: flex-start;
+        margin-bottom: 10px;
+    }
+    
+    .credential-item .copy-btn {
+        margin-top: 5px;
+        width: 100%;
+    }
+}
+
+/* Melhorias de usabilidade para mobile */
+@media (max-width: 480px) {
+    .container {
+        padding: 10px;
+    }
+    
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .auth-section {
+        margin-top: 15px;
+        width: 100%;
+    }
+    
+    .login-btn {
+        width: 100%;
+    }
+    
+    .user-info {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .user-avatar {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+}
+
+/* Loading spinner */
+.loading-spinner {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 4px solid var(--primary-color);
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
