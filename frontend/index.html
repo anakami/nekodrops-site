@@ -685,8 +685,18 @@ async function checkUserRoles(token) {
 }
   
 /* Auth flow (mantive suas funções originais) */
-function loginWithDiscord() { 
-  window.location.href = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.join`; 
+function loginWithDiscord() {
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    // iOS - usa redirecionamento direto
+    window.location.href = `${BACKEND_URL}/auth/discord?redirect_uri=${encodeURIComponent(window.location.origin)}`;
+  } else {
+    // Outros dispositivos - usa popup
+    const authWindow = window.open(
+      `${BACKEND_URL}/auth/discord?redirect_uri=${encodeURIComponent(window.location.origin)}`,
+      'DiscordLogin',
+      'width=600,height=700'
+    );
+  }
 }
 
 function processAuthResponse() {
