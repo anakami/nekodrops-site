@@ -35,23 +35,41 @@ const OWNER_ROLE_ID = process.env.OWNER_ROLE_ID;
 
 // "Banco de dados" em memória (substitua por MongoDB depois)
 let dropsDatabase = [];
-let connectedClients = new Set();
+let connectedClients = new Map(); // Mapa para armazenar informações dos clientes
 
 // WebSocket para atualização em tempo real
 io.on('connection', (socket) => {
-  console.log('🔗 Cliente conectado via WebSocket');
-  connectedClients.add(socket.id);
+  console.log('🔗 Cliente conectado via WebSocket:', socket.id);
+  
+  // Evento para autenticar o cliente com suas permissões
+  socket.on('authenticate', (userData) => {
+    connectedClients.set(socket.id, {
+      userId: userData.userId,
+      roles: userData.roles || [],
+      isVip: userData.roles?.includes(VIP_ROLE_ID) || userData.roles?.includes(OWNER_ROLE_ID),
+      isOwner: userData.roles?.includes(OWNER_ROLE_ID)
+    });
+    console.log(`✅ Cliente ${socket.id} autenticado como ${userData.userId}`);
+  });
   
   socket.on('disconnect', () => {
-    console.log('🔌 Cliente desconectado');
+    console.log('🔌 Cliente desconectado:', socket.id);
     connectedClients.delete(socket.id);
   });
 });
 
-// Função para emitir atualizações para todos os clientes
-function emitNewDrop(dropData) {
-  io.emit('new-drop', dropData);
-  console.log('📢 Novo drop emitido para clientes');
+// Função para emitir drops apenas para usuários autorizados
+function emitNewDropToAllowedUsers(dropData) {
+  connectedClients.forEach((clientInfo, socketId) => {
+    const canSee = dropData.isVip 
+      ? clientInfo.isVip || clientInfo.isOwner
+      : true;
+    
+    if (canSee) {
+      io.to(socketId).emit('new-drop', dropData);
+    }
+  });
+  console.log('📢 Novo drop emitido para clientes autorizados');
 }
 
 // Rota para receber drops do bot
@@ -74,8 +92,8 @@ app.post('/api/drops', async (req, res) => {
       dropsDatabase = dropsDatabase.slice(-1000);
     }
     
-    // Emitir para todos os clientes via WebSocket
-    emitNewDrop(dropData);
+    // Emitir apenas para usuários autorizados via WebSocket
+    emitNewDropToAllowedUsers(dropData);
     
     res.json({ 
       success: true, 
@@ -90,12 +108,36 @@ app.post('/api/drops', async (req, res) => {
   }
 });
 
-// Rota para listar todos os drops
-app.get('/api/drops', (req, res) => {
+// Rota para listar todos os drops (com filtro por permissões)
+app.get('/api/drops', async (req, res) => {
   try {
     const { type, limit = 50, offset = 0 } = req.query;
+    const authHeader = req.headers.authorization;
     
     let filteredDrops = dropsDatabase.filter(drop => drop.isActive !== false);
+    
+    // Se não tem token, retorna vazio
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.json({ success: true, drops: [] });
+    }
+    
+    const token = authHeader.substring(7);
+    
+    try {
+      // Verificar permissões do usuário
+      const userInfo = await getUserInfoFromToken(token);
+      const canSeeVip = userInfo.roles.includes(VIP_ROLE_ID) || userInfo.roles.includes(OWNER_ROLE_ID);
+      
+      // Filtrar drops conforme permissões
+      filteredDrops = filteredDrops.filter(drop => {
+        if (drop.isVip && !canSeeVip) return false;
+        return true;
+      });
+      
+    } catch (error) {
+      console.log('⚠️ Token inválido ou expirado, retornando drops públicos');
+      filteredDrops = filteredDrops.filter(drop => !drop.isVip);
+    }
     
     // Filtrar por tipo se especificado
     if (type === 'vip') {
@@ -123,8 +165,43 @@ app.get('/api/drops', (req, res) => {
   }
 });
 
+// Função auxiliar para obter informações do usuário a partir do token
+async function getUserInfoFromToken(token) {
+  try {
+    const userResponse = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!userResponse.ok) {
+      throw new Error('Token inválido');
+    }
+
+    const user = await userResponse.json();
+
+    const memberResponse = await fetch(`https://discord.com/api/users/@me/guilds/${SERVER_ID}/member`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!memberResponse.ok) {
+      throw new Error('Usuário não está no servidor');
+    }
+
+    const member = await memberResponse.json();
+    
+    return {
+      userId: user.id,
+      roles: member.roles || [],
+      isVip: member.roles.includes(VIP_ROLE_ID) || member.roles.includes(OWNER_ROLE_ID),
+      isOwner: member.roles.includes(OWNER_ROLE_ID)
+    };
+    
+  } catch (error) {
+    throw new Error('Falha ao obter informações do usuário: ' + error.message);
+  }
+}
+
 // Rota para deletar um drop (apenas owner)
-app.delete('/api/drops/:id', (req, res) => {
+app.delete('/api/drops/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const authHeader = req.headers.authorization;
@@ -135,8 +212,15 @@ app.delete('/api/drops/:id', (req, res) => {
     
     const token = authHeader.substring(7);
     
-    // Verificar se é owner (implemente sua lógica de verificação)
-    // Por enquanto, vamos assumir que qualquer token pode deletar
+    // Verificar se é owner
+    try {
+      const userInfo = await getUserInfoFromToken(token);
+      if (!userInfo.isOwner) {
+        return res.status(403).json({ error: 'Apenas owners podem deletar drops' });
+      }
+    } catch (error) {
+      return res.status(401).json({ error: 'Token inválido' });
+    }
     
     const dropIndex = dropsDatabase.findIndex(drop => drop.id === id);
     
@@ -148,7 +232,7 @@ app.delete('/api/drops/:id', (req, res) => {
     dropsDatabase[dropIndex].isActive = false;
     dropsDatabase[dropIndex].deletedAt = new Date().toISOString();
     
-    // Emitir atualização para clientes
+    // Emitir atualização para todos os clientes
     io.emit('drop-deleted', id);
     
     res.json({ 
@@ -163,10 +247,31 @@ app.delete('/api/drops/:id', (req, res) => {
   }
 });
 
-// Rota para estatísticas
-app.get('/api/stats', (req, res) => {
+// Rota para estatísticas (com filtro por permissões)
+app.get('/api/stats', async (req, res) => {
   try {
-    const activeDrops = dropsDatabase.filter(drop => drop.isActive !== false);
+    const authHeader = req.headers.authorization;
+    let activeDrops = dropsDatabase.filter(drop => drop.isActive !== false);
+    
+    // Filtrar por permissões se token fornecido
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        const userInfo = await getUserInfoFromToken(token);
+        const canSeeVip = userInfo.isVip || userInfo.isOwner;
+        
+        if (!canSeeVip) {
+          activeDrops = activeDrops.filter(drop => !drop.isVip);
+        }
+      } catch (error) {
+        // Se token inválido, mostra apenas drops normais
+        activeDrops = activeDrops.filter(drop => !drop.isVip);
+      }
+    } else {
+      // Sem token, mostra apenas drops normais
+      activeDrops = activeDrops.filter(drop => !drop.isVip);
+    }
+    
     const vipDrops = activeDrops.filter(drop => drop.isVip);
     const normalDrops = activeDrops.filter(drop => !drop.isVip);
     
@@ -247,53 +352,44 @@ app.get('/api/user-info', async (req, res) => {
     const token = authHeader.substring(7);
 
     try {
-        const userResponse = await fetch('https://discord.com/api/users/@me', {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        });
-
-        if (!userResponse.ok) {
-            return res.status(401).json({ error: 'Token inválido' });
-        }
-
-        const user = await userResponse.json();
-
-        const memberResponse = await fetch(`https://discord.com/api/users/@me/guilds/${SERVER_ID}/member`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        });
-
-        if (!memberResponse.ok) {
-            return res.status(403).json({ error: 'Usuário não está no servidor' });
-        }
-
-        const member = await memberResponse.json();
-        const roles = member.roles || [];
-
-        const isMember = roles.includes(MEMBER_ROLE_ID) || roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
-        const isVip = roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
-        const isOwner = roles.includes(OWNER_ROLE_ID);
-
-        if (!isMember) {
-            return res.status(403).json({ error: 'Acesso negado. Você precisa ser membro do servidor.' });
-        }
-
+        const userInfo = await getUserInfoFromToken(token);
+        
         res.json({
-            userId: user.id,
-            username: user.username,
-            avatar: user.avatar,
-            discriminator: user.discriminator,
-            roles: roles,
-            isVip: isVip,
-            isMember: isMember,
-            isOwner: isOwner,
-            canAccess: isMember
+            userId: userInfo.userId,
+            username: userInfo.username,
+            avatar: userInfo.avatar,
+            roles: userInfo.roles,
+            isVip: userInfo.isVip,
+            isOwner: userInfo.isOwner,
+            canAccess: true
         });
 
     } catch (error) {
         console.error('❌ Erro ao obter informações do usuário:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
+// Rota para obter cargos do usuário
+app.get('/api/user-roles', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Token não fornecido' });
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+        const userInfo = await getUserInfoFromToken(token);
+        
+        res.json({
+            success: true,
+            roles: userInfo.roles
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao obter cargos do usuário:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
@@ -323,6 +419,7 @@ app.get('/', (req, res) => {
             auth: '/auth/discord',
             callback: '/auth/callback',
             userInfo: '/api/user-info',
+            userRoles: '/api/user-roles',
             drops: '/api/drops',
             stats: '/api/stats',
             health: '/health'
@@ -347,4 +444,5 @@ server.listen(PORT, () => {
     console.log(`🔗 Redirect URI: ${REDIRECT_URI}`);
     console.log(`✅ Health check disponível em: http://localhost:${PORT}/health`);
     console.log(`📊 WebSocket pronto para conexões`);
+    console.log(`🔒 Sistema de segurança VIP ativado`);
 });
