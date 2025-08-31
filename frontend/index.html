@@ -186,6 +186,22 @@ function setupMobileMenu() {
   });
 }
 
+function checkAuth() {
+  const token = localStorage.getItem('discord_token');
+  const userData = localStorage.getItem('discord_user');
+  const rolesData = localStorage.getItem('discord_roles');
+
+  if (token && userData) {
+    user = JSON.parse(userData);
+    if (rolesData) userRoles = JSON.parse(rolesData);
+    if (userRoles.length > 0) { 
+      updateUIAfterLogin(); 
+      loadDrops(); 
+    }
+    else checkUserRoles(token);
+  } else showNoAccessMessage();
+}
+  
 /* Auth flow (mantive suas funções originais) */
 function loginWithDiscord() { window.location.href = `${BACKEND_URL}/auth/discord`; }
 
@@ -257,10 +273,11 @@ async function loadDrops() {
 /* UI: render */
 function renderDrops(filter = 'all') {
   clearDrops();
-  if (!drops || drops.length === 0) {
-    dropsGrid.innerHTML = `<div class="no-drops"><h3>Nenhuma conta disponível</h3></div>`;
-    return;
+  if (!user || userRoles.length === 0) { 
+    showNoAccessMessage(); 
+    return; 
   }
+
   const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
   const isOwner = userRoles.includes(OWNER_ROLE_ID);
   let filtered = drops;
@@ -346,29 +363,15 @@ function createRobloxAccountElement(account, isOwner) {
   }
 
   // Tipo auth: Auth + Recovery Codes + Cookie (cookie aqui é cookie do auth)
-  if (type === 'auth') {
-    if (authVal) {
-      credentialsHTML += `
-        <div class="credential-item">
-          <span>Auth: </span><span class="credential-value">••••••••</span>
-          <button class="copy-btn" data-value="${authVal}">Copiar</button>
-        </div>`;
-    }
-    if (recoveryVal) {
-      credentialsHTML += `
-        <div class="credential-item">
-          <span>Recovery Codes: </span><span class="credential-value">••••••••</span>
-          <button class="copy-btn" data-value="${recoveryVal}">Copiar</button>
-        </div>`;
-    }
-    if (cookieVal) {
-      credentialsHTML += `
-        <div class="credential-item">
-          <span>Cookie: </span><span class="credential-value">••••••••</span>
-          <button class="copy-btn" data-value="${cookieVal}">Copiar</button>
-        </div>`;
-    }
-  }
+  if (cookie && auth && recovery) {
+  // Embed AUTH
+  creds += `
+    <div class="credential-item"><span>Usuário: </span><span class="credential-value">${username}</span><button class="copy-btn" data-value="${username}">Copiar</button></div>
+    <div class="credential-item"><span>Senha: </span><span class="credential-value">••••••••</span><button class="copy-btn" data-value="${password}">Copiar</button></div>
+    <div class="credential-item"><span>Auth: </span><span class="credential-value">••••••••</span><button class="copy-btn" data-value="${auth}">Copiar</button></div>
+    <div class="credential-item"><span>Recovery Codes: </span><span class="credential-value">••••••••</span><button class="copy-btn" data-value="${recovery}">Copiar</button></div>
+    <div class="credential-item"><span>Cookie: </span><span class="credential-value">••••••••</span><button class="copy-btn" data-value="${cookie}">Copiar</button></div>`;
+}
 
   // Tipo ip-only: só IP (além de usuário/senha já adicionados)
   if (type === 'ip') {
