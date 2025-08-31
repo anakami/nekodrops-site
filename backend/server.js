@@ -28,7 +28,7 @@ app.get('/auth/discord', (req, res) => {
     res.redirect(discordAuthUrl);
 });
 
-// No server.js, adicione no início da rota /auth/callback
+// Rota de callback do Discord
 app.get('/auth/callback', async (req, res) => {
     console.log('✅ Callback recebido! Query parameters:', req.query);
     const code = req.query.code;
@@ -39,8 +39,6 @@ app.get('/auth/callback', async (req, res) => {
     }
     
     console.log('✅ Code recebido:', code);
-    // ... resto do código
-});
 
     try {
         // Trocar code por access token
@@ -67,94 +65,122 @@ app.get('/auth/callback', async (req, res) => {
             // Redirecionar com o token para o frontend
             res.redirect(`${FRONTEND_URL}/?token=${json.access_token}`);
         } else {
+            console.log('❌ Erro ao obter token:', json);
             res.redirect(`${FRONTEND_URL}/?error=${json.error}`);
         }
     } catch (error) {
-        console.error('Erro no callback:', error);
+        console.error('❌ Erro no callback:', error);
         res.redirect(`${FRONTEND_URL}/?error=server_error`);
     }
 });
 
 // Rota para obter informações do usuário e cargos
 app.get('/api/user-info', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token não fornecido' });
-  }
-
-  const token = authHeader.substring(7);
-
-  try {
-    // Obter informações do usuário
-    const userResponse = await fetch('https://discord.com/api/users/@me', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!userResponse.ok) {
-      return res.status(401).json({ error: 'Token inválido' });
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Token não fornecido' });
     }
 
-    const user = await userResponse.json();
+    const token = authHeader.substring(7);
 
-    // Verificar se o usuário está no servidor
-    const memberResponse = await fetch(`https://discord.com/api/users/@me/guilds/${SERVER_ID}/member`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    try {
+        // Obter informações do usuário
+        const userResponse = await fetch('https://discord.com/api/users/@me', {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
 
-    if (!memberResponse.ok) {
-      return res.status(403).json({ error: 'Usuário não está no servidor' });
+        if (!userResponse.ok) {
+            return res.status(401).json({ error: 'Token inválido' });
+        }
+
+        const user = await userResponse.json();
+
+        // Verificar se o usuário está no servidor
+        const memberResponse = await fetch(`https://discord.com/api/users/@me/guilds/${SERVER_ID}/member`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!memberResponse.ok) {
+            return res.status(403).json({ error: 'Usuário não está no servidor' });
+        }
+
+        const member = await memberResponse.json();
+        const roles = member.roles || [];
+
+        // Verificar se é membro (tem o cargo de membro ou superior)
+        const isMember = roles.includes(MEMBER_ROLE_ID) || roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
+        const isVip = roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
+        const isOwner = roles.includes(OWNER_ROLE_ID);
+
+        if (!isMember) {
+            return res.status(403).json({ error: 'Acesso negado. Você precisa ser membro do servidor.' });
+        }
+
+        res.json({
+            userId: user.id,
+            username: user.username,
+            avatar: user.avatar,
+            discriminator: user.discriminator,
+            roles: roles,
+            isVip: isVip,
+            isMember: isMember,
+            isOwner: isOwner,
+            canAccess: isMember
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao obter informações do usuário:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
-
-    const member = await memberResponse.json();
-    const roles = member.roles || [];
-
-    // Verificar se é membro (tem o cargo de membro ou superior)
-    const isMember = roles.includes(MEMBER_ROLE_ID) || roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
-    const isVip = roles.includes(VIP_ROLE_ID) || roles.includes(OWNER_ROLE_ID);
-
-    if (!isMember) {
-      return res.status(403).json({ error: 'Acesso negado. Você precisa ser membro do servidor.' });
-    }
-
-    res.json({
-      userId: user.id,
-      username: user.username,
-      avatar: user.avatar,
-      roles: roles,
-      isVip: isVip,
-      isMember: isMember,
-      canAccess: isMember
-    });
-
-  } catch (error) {
-    console.error('Erro ao obter informações do usuário:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
 });
 
 // Health check
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+    res.status(200).json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        environment: {
+            hasClientId: !!CLIENT_ID,
+            hasClientSecret: !!CLIENT_SECRET,
+            hasServerId: !!SERVER_ID
+        }
+    });
 });
 
 // Rota básica para teste
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'NEKO DROPS Backend API', 
-    status: 'online',
-    endpoints: {
-      auth: '/auth/discord',
-      userInfo: '/api/user-info',
-      health: '/health'
-    }
-  });
+    res.json({ 
+        message: 'NEKO DROPS Backend API', 
+        status: 'online',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+            auth: '/auth/discord',
+            callback: '/auth/callback',
+            userInfo: '/api/user-info',
+            health: '/health'
+        }
+    });
+});
+
+// Middleware de erro global
+app.use((error, req, res, next) => {
+    console.error('❌ Erro não tratado:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+});
+
+// Rota para 404
+app.use('*', (req, res) => {
+    res.status(404).json({ error: 'Endpoint não encontrado' });
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
+    console.log(`🔗 Redirect URI: ${REDIRECT_URI}`);
+    console.log(`✅ Health check disponível em: http://localhost:${PORT}/health`);
 });
