@@ -6,8 +6,54 @@
     <title>NEKO DROPS</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="style.css">
+    <!-- Socket.io CDN para WebSocket -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        /* Estilos adicionais para WebSocket */
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            z-index: 1000;
+            font-size: 12px;
+            background: #f44336;
+            color: white;
+        }
+        
+        .connection-status.connected {
+            background: #4CAF50;
+        }
+        
+        .drop-notification {
+            position: fixed;
+            top: 50px;
+            right: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 999;
+            max-width: 250px;
+            font-size: 14px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
 </head>
 <body>
+    <!-- Status de conexão WebSocket -->
+    <div id="connection-status" class="connection-status">
+        ❌ Desconectado
+    </div>
+
     <div class="container">
         <header>
             <div class="logo">NEKO <span>DROPS</span></div>
@@ -61,7 +107,7 @@
         const VIP_ROLE_ID = "1399662852448587859";
         const OWNER_ROLE_ID = "1399664650638856303";
 
-        // URL do backend - Render (substitua pela sua URL real)
+        // URL do backend - Render
         const BACKEND_URL = 'https://nekodrops-backend.onrender.com';
 
         // Elementos DOM
@@ -77,11 +123,13 @@
         const modalLoginBtn = document.getElementById('modal-login-btn');
         const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
         const filters = document.querySelector('.filters');
+        const connectionStatus = document.getElementById('connection-status');
 
         // Estado da aplicação
         let user = null;
         let userRoles = [];
         let drops = [];
+        let socket = null;
 
         // Dados de exemplo de contas Roblox
         const sampleRobloxAccounts = [
@@ -142,7 +190,69 @@
             setupModalClosing();
             setupMobileMenu();
             processAuthResponse();
+            setupWebSocket(); // Inicializar WebSocket
         });
+
+        // Configurar WebSocket
+        function setupWebSocket() {
+            try {
+                socket = io(BACKEND_URL, {
+                    transports: ['websocket', 'polling']
+                });
+
+                socket.on('connect', () => {
+                    console.log('✅ Conectado ao WebSocket');
+                    connectionStatus.textContent = '✅ Conectado';
+                    connectionStatus.classList.add('connected');
+                });
+
+                socket.on('disconnect', () => {
+                    console.log('❌ Desconectado do WebSocket');
+                    connectionStatus.textContent = '❌ Desconectado';
+                    connectionStatus.classList.remove('connected');
+                });
+
+                socket.on('new-drop', (dropData) => {
+                    console.log('🎉 Novo drop recebido via WebSocket:', dropData);
+                    showNewDropNotification(dropData);
+                    
+                    // Adicionar o novo drop à lista
+                    drops.unshift(dropData);
+                    renderDrops();
+                });
+
+                socket.on('drop-deleted', (dropId) => {
+                    console.log('🗑️ Drop removido:', dropId);
+                    // Remover drop da lista
+                    drops = drops.filter(drop => drop.id !== dropId);
+                    renderDrops();
+                });
+
+            } catch (error) {
+                console.error('❌ Erro ao conectar WebSocket:', error);
+            }
+        }
+
+        // Mostrar notificação de novo drop
+        function showNewDropNotification(dropData) {
+            const notification = document.createElement('div');
+            notification.className = 'drop-notification';
+            notification.innerHTML = `
+                <strong>🎁 NOVO DROP!</strong>
+                <p>👤 ${dropData.username}</p>
+                <p>🪙 ${dropData.robux} Robux</p>
+                <small>${new Date().toLocaleTimeString()}</small>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Remover após 5 segundos
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
 
         function setupEventListeners() {
             // Login com Discord
@@ -429,6 +539,13 @@
             userInfo.classList.add('hidden');
             clearDrops();
             showNoAccessMessage();
+            
+            // Desconectar WebSocket se estiver conectado
+            if (socket) {
+                socket.disconnect();
+                connectionStatus.textContent = '❌ Desconectado';
+                connectionStatus.classList.remove('connected');
+            }
         }
 
         // Mostrar erro
@@ -443,8 +560,19 @@
         }
 
         // Carregar drops
-        function loadDrops() {
-            drops = sampleRobloxAccounts;
+        async function loadDrops() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/drops`);
+                if (response.ok) {
+                    const data = await response.json();
+                    drops = data.drops || sampleRobloxAccounts;
+                } else {
+                    drops = sampleRobloxAccounts;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar drops:', error);
+                drops = sampleRobloxAccounts;
+            }
             renderDrops();
         }
 
@@ -550,9 +678,25 @@
         }
 
         // Deletar drop
-        function deleteDrop(dropId) {
-            drops = drops.filter(drop => drop.id !== dropId);
-            renderDrops();
+        async function deleteDrop(dropId) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/drops/${dropId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('discord_token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    drops = drops.filter(drop => drop.id !== dropId);
+                    renderDrops();
+                } else {
+                    throw new Error('Falha ao deletar drop');
+                }
+            } catch (error) {
+                console.error('Erro ao deletar drop:', error);
+                showError('Erro ao deletar conta. Tente novamente.');
+            }
         }
 
         // Limpar drops
