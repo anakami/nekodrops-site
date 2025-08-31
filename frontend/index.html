@@ -734,32 +734,44 @@
 
   /* WebSocket */
   function setupWebSocket() {
-    socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
-    socket.on('connect', () => {
-      connectionStatus.textContent = '✨ Conectado';
-      connectionStatus.classList.add('connected');
-      
-      // Sincroniza com o servidor quando conectado
-      loadDropsFromServer();
-    });
-    socket.on('disconnect', () => {
-      connectionStatus.textContent = '❌ Desconectado';
-      connectionStatus.classList.remove('connected');
-    });
-    socket.on('new-drop', dropData => { 
-      // Adiciona o novo drop e salva no localStorage
-      drops.unshift(dropData); 
-      saveDropsToLocalStorage();
-      renderDrops(currentFilter); 
-    });
-    socket.on('drop-deleted', id => { 
-      // Remove o drop e atualiza o localStorage
-      drops = drops.filter(d => d.id !== id); 
-      saveDropsToLocalStorage();
-      renderDrops(currentFilter); 
-    });
-  }
-
+  socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
+  
+  socket.on('connect', () => {
+    connectionStatus.textContent = '✨ Conectado';
+    connectionStatus.classList.add('connected');
+    
+    // 🔥 ADICIONAR AQUI: Autenticar o WebSocket após conectar
+    if (user && userRoles.length > 0) {
+      socket.emit('authenticate', {
+        userId: user.id,
+        roles: userRoles
+      });
+      console.log('🔐 WebSocket autenticado com as permissões do usuário');
+    }
+    
+    // Sincroniza com o servidor quando conectado
+    loadDropsFromServer();
+  });
+  
+  socket.on('disconnect', () => {
+    connectionStatus.textContent = '❌ Desconectado';
+    connectionStatus.classList.remove('connected');
+  });
+  
+  socket.on('new-drop', dropData => { 
+    // Adiciona o novo drop e salva no localStorage
+    drops.unshift(dropData); 
+    saveDropsToLocalStorage();
+    renderDrops(currentFilter); 
+  });
+  
+  socket.on('drop-deleted', id => { 
+    // Remove o drop e atualiza o localStorage
+    drops = drops.filter(d => d.id !== id); 
+    saveDropsToLocalStorage();
+    renderDrops(currentFilter); 
+  });
+}
   /* Carrega drops do servidor */
   async function loadDropsFromServer() {
     try {
@@ -944,17 +956,26 @@
   }
 
   function updateUIAfterLogin() {
-    loginBtn.textContent = '🚪 Sair';
-    if (user && user.avatar) {
-      userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
-    }
-    if (user) {
-      username.textContent = user.username;
-    }
-    userInfo.classList.remove('hidden'); 
-    loginModal.style.display = 'none';
-    document.body.style.overflow = 'auto';
+  loginBtn.textContent = '🚪 Sair';
+  if (user && user.avatar) {
+    userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
   }
+  if (user) {
+    username.textContent = user.username;
+  }
+  userInfo.classList.remove('hidden'); 
+  loginModal.style.display = 'none';
+  document.body.style.overflow = 'auto';
+  
+  // 🔥 ADICIONAR AQUI: Reautenticar WebSocket após login
+  if (socket && socket.connected) {
+    socket.emit('authenticate', {
+      userId: user.id,
+      roles: userRoles
+    });
+    console.log('🔐 WebSocket reautenticado após login');
+  }
+}
 
   function logout() {
     localStorage.clear();
