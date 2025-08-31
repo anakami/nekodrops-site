@@ -28,13 +28,19 @@ app.get('/auth/discord', (req, res) => {
     res.redirect(discordAuthUrl);
 });
 
-// Rota de callback do Discord
+// No server.js, adicione no início da rota /auth/callback
 app.get('/auth/callback', async (req, res) => {
+    console.log('✅ Callback recebido! Query parameters:', req.query);
     const code = req.query.code;
     
     if (!code) {
+        console.log('❌ Erro: Code não recebido');
         return res.redirect(`${FRONTEND_URL}/?error=no_code`);
     }
+    
+    console.log('✅ Code recebido:', code);
+    // ... resto do código
+});
 
     try {
         // Trocar code por access token
