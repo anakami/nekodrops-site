@@ -15,7 +15,7 @@ app.use(express.json());
 // Variáveis de ambiente
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
-const REDIRECT_URI = process.env.REDIRECT_URI || "https://nekodrops-site.onrender.com/auth/callback";
+const REDIRECT_URI = process.env.REDIRECT_URI || "https://nekodrops-backend.onrender.com/auth/callback";
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://nekodrops-site.onrender.com";
 const SERVER_ID = process.env.SERVER_ID;
 const MEMBER_ROLE_ID = process.env.MEMBER_ROLE_ID;
