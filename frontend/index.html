@@ -5,17 +5,372 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>NEKO DROPS</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <style>
-    .connection-status {
-      position: fixed; top: 10px; right: 10px;
-      padding: 8px 12px; border-radius: 20px;
-      font-weight: bold; z-index: 1000;
-      font-size: 12px; background: #f44336; color: white;
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
     }
-    .connection-status.connected { background: #4CAF50; }
+
+    body {
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .connection-status {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-weight: bold;
+      z-index: 1000;
+      font-size: 12px;
+      background: #f44336;
+      color: white;
+    }
+
+    .connection-status.connected {
+      background: #4CAF50;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0;
+      margin-bottom: 30px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .logo span {
+      color: #8A2BE2;
+    }
+
+    .auth-section {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+    }
+
+    .login-btn {
+      background: #5865F2;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+
+    .login-btn:hover {
+      background: #4752c4;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .filter-btn.active {
+      background: #8A2BE2;
+    }
+
+    .drops-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .drop-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .drop-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .drop-badge, .vip-badge {
+      position: absolute;
+      top: 0;
+      right: 0;
+      padding: 5px 10px;
+      border-bottom-left-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .drop-badge {
+      background: #8A2BE2;
+    }
+
+    .vip-badge {
+      background: gold;
+      color: #000;
+    }
+
+    .drop-image {
+      width: 100%;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+
+    .drop-title {
+      font-size: 18px;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .drop-price {
+      color: #8A2BE2;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .drop-features {
+      margin-bottom: 15px;
+      padding-left: 20px;
+    }
+
+    .drop-features li {
+      margin-bottom: 5px;
+    }
+
+    .account-credentials {
+      margin-bottom: 15px;
+    }
+
+    .credential-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 8px 12px;
+      border-radius: 6px;
+    }
+
+    .credential-item span:first-child {
+      font-weight: 600;
+      margin-right: 5px;
+      min-width: 80px;
+    }
+
+    .credential-value {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 8px;
+      font-size: 12px;
+      transition: background 0.3s;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .drop-description {
+      margin-bottom: 15px;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    .drop-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .claim-btn {
+      background: #8A2BE2;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+
+    .claim-btn:hover {
+      background: #7936c7;
+    }
+
+    .delete-btn {
+      background: rgba(255, 0, 0, 0.2);
+      border: none;
+      color: #ff4d4d;
+      padding: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .delete-btn:hover {
+      background: rgba(255, 0, 0, 0.3);
+    }
+
+    .no-drops {
+      text-align: center;
+      grid-column: 1 / -1;
+      padding: 40px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+    }
+
+    .loading {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .loading-spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid #8A2BE2;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: #1e1e2f;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+    }
+
+    .modal-title {
+      margin-bottom: 15px;
+      color: #fff;
+    }
+
+    .modal-btn {
+      background: #5865F2;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 15px;
+      width: 100%;
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+      .mobile-menu-btn {
+        display: block;
+      }
+      
+      .drops-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .filters {
+        flex-direction: column;
+        position: absolute;
+        top: 80px;
+        right: 20px;
+        background: #1e1e2f;
+        padding: 15px;
+        border-radius: 8px;
+        display: none;
+        z-index: 100;
+      }
+      
+      .filters.active {
+        display: flex;
+      }
+    }
   </style>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
   <div id="connection-status" class="connection-status">❌ Desconectado</div>
@@ -88,6 +443,7 @@ const filters = document.querySelector('.filters');
 const connectionStatus = document.getElementById('connection-status');
 
 let user = null, userRoles = [], drops = [], socket = null;
+let currentFilter = 'all';
 
 /* Helper: limpa texto e normaliza "N/A" */
 function cleanDiscordText(text) {
@@ -103,7 +459,15 @@ function setupCopyButtons() {
   document.addEventListener('click', e => {
     if (e.target.classList.contains('copy-btn')) {
       const value = e.target.getAttribute('data-value') || '';
-      if (value) navigator.clipboard.writeText(value);
+      if (value) {
+        navigator.clipboard.writeText(value).then(() => {
+          const originalText = e.target.textContent;
+          e.target.textContent = '✓ Copiado!';
+          setTimeout(() => {
+            e.target.textContent = originalText;
+          }, 2000);
+        });
+      }
     }
   });
 }
@@ -115,9 +479,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCopyButtons();
   setupModalClosing();
   setupMobileMenu();
+  checkAuth(); // Esta linha estava faltando - agora verifica autenticação ao carregar
   processAuthResponse();
   setupWebSocket();
-  loadDrops();
 });
 
 /* WebSocket */
@@ -131,8 +495,14 @@ function setupWebSocket() {
     connectionStatus.textContent = '❌ Desconectado';
     connectionStatus.classList.remove('connected');
   });
-  socket.on('new-drop', dropData => { drops.unshift(dropData); renderDrops(); });
-  socket.on('drop-deleted', id => { drops = drops.filter(d => d.id !== id); renderDrops(); });
+  socket.on('new-drop', dropData => { 
+    drops.unshift(dropData); 
+    renderDrops(currentFilter); 
+  });
+  socket.on('drop-deleted', id => { 
+    drops = drops.filter(d => d.id !== id); 
+    renderDrops(currentFilter); 
+  });
 }
 
 /* Event listeners básicos (login modal, login button) */
@@ -174,7 +544,8 @@ function setupModalClosing() {
 function setupMobileMenu() {
   if (!mobileMenuBtn || !filters) return;
   mobileMenuBtn.addEventListener('click', e => {
-    e.stopPropagation(); filters.classList.toggle('active');
+    e.stopPropagation(); 
+    filters.classList.toggle('active');
   });
   document.addEventListener('click', e => {
     if (!e.target.closest('.filters') && !e.target.closest('.mobile-menu-btn')) {
@@ -197,18 +568,50 @@ function checkAuth() {
     if (userRoles.length > 0) { 
       updateUIAfterLogin(); 
       loadDrops(); 
+    } else {
+      checkUserRoles(token);
     }
-    else checkUserRoles(token);
-  } else showNoAccessMessage();
+  } else {
+    showNoAccessMessage();
+  }
+}
+
+// Esta função estava faltando no código original
+async function checkUserRoles(token) {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/user-roles`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      userRoles = data.roles || [];
+      localStorage.setItem('discord_roles', JSON.stringify(userRoles));
+      updateUIAfterLogin();
+      loadDrops();
+    } else {
+      showNoAccessMessage();
+    }
+  } catch (e) {
+    console.error("Erro ao verificar roles:", e);
+    showNoAccessMessage();
+  }
 }
   
 /* Auth flow (mantive suas funções originais) */
-function loginWithDiscord() { window.location.href = `${BACKEND_URL}/auth/discord`; }
+function loginWithDiscord() { 
+  window.location.href = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.join`; 
+}
 
 function processAuthResponse() {
   const urlParams = new URLSearchParams(window.location.search);
-  const token = urlParams.get('token'), error = urlParams.get('error');
-  if (error) { showError("Erro ao fazer login."); return; }
+  const token = urlParams.get('token');
+  const error = urlParams.get('error');
+  
+  if (error) { 
+    showError("Erro ao fazer login."); 
+    return; 
+  }
+  
   if (token) {
     localStorage.setItem('discord_token', token);
     getUserInfo(token);
@@ -221,37 +624,68 @@ async function getUserInfo(token) {
     const res = await fetch(`${BACKEND_URL}/api/user-info`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    if (!res.ok) { logout(); return; }
+    
+    if (!res.ok) { 
+      logout(); 
+      return; 
+    }
+    
     const data = await res.json();
-    if (!data.canAccess) { showError("Você precisa ser membro do servidor."); logout(); return; }
-    user = { id: data.userId, username: data.username, avatar: data.avatar };
-    userRoles = data.roles;
+    
+    if (!data.canAccess) { 
+      showError("Você precisa ser membro do servidor."); 
+      logout(); 
+      return; 
+    }
+    
+    user = { 
+      id: data.userId, 
+      username: data.username, 
+      avatar: data.avatar 
+    };
+    
+    userRoles = data.roles || [];
     localStorage.setItem('discord_user', JSON.stringify(user));
     localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-    updateUIAfterLogin(); loadDrops();
+    updateUIAfterLogin(); 
+    loadDrops();
   } catch (e) {
-    console.error(e);
+    console.error("Erro ao obter informações do usuário:", e);
+    showError("Erro ao carregar informações do usuário.");
   }
 }
 
 function updateUIAfterLogin() {
   loginBtn.textContent = 'Sair';
-  if (user && user.avatar) userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
-  if (user) username.textContent = user.username;
-  userInfo.classList.remove('hidden'); loginModal.style.display = 'none';
+  if (user && user.avatar) {
+    userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
+  }
+  if (user) {
+    username.textContent = user.username;
+  }
+  userInfo.classList.remove('hidden'); 
+  loginModal.style.display = 'none';
   document.body.style.overflow = 'auto';
 }
 
 function logout() {
   localStorage.clear();
-  user = null; userRoles = [];
+  user = null; 
+  userRoles = [];
   loginBtn.textContent = 'Entrar com Discord';
-  userInfo.classList.add('hidden'); clearDrops(); showNoAccessMessage();
-  if (socket) { socket.disconnect(); connectionStatus.textContent = '❌ Desconectado'; connectionStatus.classList.remove('connected'); }
+  userInfo.classList.add('hidden'); 
+  clearDrops(); 
+  showNoAccessMessage();
+  if (socket) { 
+    socket.disconnect(); 
+    connectionStatus.textContent = '❌ Desconectado'; 
+    connectionStatus.classList.remove('connected'); 
+  }
 }
 
 function showError(msg) {
-  errorMessage.textContent = msg; errorModal.style.display = 'flex';
+  errorMessage.textContent = msg; 
+  errorModal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
 
@@ -260,19 +694,23 @@ async function loadDrops() {
   try {
     const token = localStorage.getItem('discord_token');
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
     const res = await fetch(`${BACKEND_URL}/api/drops`, { headers });
     const data = await res.json();
+    
     drops = data.success ? data.drops : [];
+    renderDrops(currentFilter);
   } catch (e) {
     console.error('Erro ao carregar drops', e);
     drops = [];
+    renderDrops(currentFilter);
   }
-  renderDrops();
 }
 
 /* UI: render */
 function renderDrops(filter = 'all') {
   clearDrops();
+  
   if (!user || userRoles.length === 0) { 
     showNoAccessMessage(); 
     return; 
@@ -280,45 +718,53 @@ function renderDrops(filter = 'all') {
 
   const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
   const isOwner = userRoles.includes(OWNER_ROLE_ID);
+  
   let filtered = drops;
-  if (filter === 'normal') filtered = drops.filter(d => !d.isVip);
-  else if (filter === 'vip') {
-    if (!canSeeVip) { dropsGrid.innerHTML = `<div class="no-drops"><h3>Seja VIP</h3></div>`; return; }
+  if (filter === 'normal') {
+    filtered = drops.filter(d => !d.isVip);
+  } else if (filter === 'vip') {
+    if (!canSeeVip) { 
+      showNoVipAccessMessage();
+      return; 
+    }
     filtered = drops.filter(d => d.isVip);
   }
-  filtered.forEach(d => dropsGrid.appendChild(createRobloxAccountElement(d, isOwner)));
+  
+  if (!filtered.length) {
+    showNoDropsMessage(filter);
+    return;
+  }
+  
+  filtered.forEach(d => {
+    const element = createRobloxAccountElement(d, isOwner);
+    if (element) {
+      dropsGrid.appendChild(element);
+    }
+  });
 }
 
 /* Função central: cria o card respeitando os 3 tipos sem sobrescrever */
 function createRobloxAccountElement(account, isOwner) {
   const card = document.createElement('div');
-  card.className = 'drop-card'; card.dataset.id = account.id;
+  card.className = 'drop-card'; 
+  card.dataset.id = account.id;
 
   // Normaliza valores e considera "N/A" como ausente
-  const unameRaw = account.username;
-  const passRaw = account.password;
-  const ipRaw = account.ip;
-  const cookieRaw = account.cookie;
-  const authRaw = account.authenticator || account.auth; // aceita ambos
-  const recoveryRaw = account.recovery || account.recovery_codes || account.recoveryCodes || "";
+  const usernameVal = cleanDiscordText(account.username);
+  const passwordVal = cleanDiscordText(account.password);
+  const ipVal = cleanDiscordText(account.ip);
+  const cookieVal = cleanDiscordText(account.cookie);
+  const authVal = cleanDiscordText(account.authenticator || account.auth);
+  const recoveryVal = cleanDiscordText(account.recovery || account.recovery_codes || account.recoveryCodes);
 
-  const usernameVal = cleanDiscordText(unameRaw);
-  const passwordVal = cleanDiscordText(passRaw);
-  const ipVal = cleanDiscordText(ipRaw);
-  const cookieVal = cleanDiscordText(cookieRaw);
-  const authVal = cleanDiscordText(authRaw);
-  const recoveryVal = cleanDiscordText(recoveryRaw);
-
-  // Detecta tipo com precedência (auth > primary(cookie+ip) > ip-only)
+  // Detecta tipo com precedência (auth > cookie+ip > ip-only)
   let type = 'basic';
   if (authVal) type = 'auth';
   else if (cookieVal && ipVal) type = 'primary';
-  else if (ipVal && !cookieVal && !authVal) type = 'ip';
-  else if (cookieVal && !ipVal) type = 'primary'; // fallback: cookie only => primary
+  else if (ipVal) type = 'ip';
 
   // Cabeçalho / imagem
   const imageUrl = account.imageUrl || account.image || account.thumbnail || '';
-
   const title = usernameVal || "Conta Roblox";
   const robux = cleanDiscordText(account.robux) || "";
   const age = cleanDiscordText(account.age) || "";
@@ -326,7 +772,7 @@ function createRobloxAccountElement(account, isOwner) {
   // Monta credenciais dependendo do tipo
   let credentialsHTML = '';
 
-  // Usuário sempre tenta aparecer se existir (ou fallback no title)
+  // Usuário sempre aparece se existir
   if (usernameVal) {
     credentialsHTML += `
       <div class="credential-item">
@@ -344,7 +790,7 @@ function createRobloxAccountElement(account, isOwner) {
       </div>`;
   }
 
-  // Tipo primary: IP + Cookie (primary embed = primeira embed)
+  // Tipo primary: IP + Cookie
   if (type === 'primary') {
     if (ipVal) {
       credentialsHTML += `
@@ -362,29 +808,46 @@ function createRobloxAccountElement(account, isOwner) {
     }
   }
 
-  // Tipo auth: Auth + Recovery Codes + Cookie (cookie aqui é cookie do auth)
-  if (cookie && auth && recovery) {
-  // Embed AUTH
-  creds += `
-    <div class="credential-item"><span>Usuário: </span><span class="credential-value">${username}</span><button class="copy-btn" data-value="${username}">Copiar</button></div>
-    <div class="credential-item"><span>Senha: </span><span class="credential-value">••••••••</span><button class="copy-btn" data-value="${password}">Copiar</button></div>
-    <div class="credential-item"><span>Auth: </span><span class="credential-value">••••••••</span><button class="copy-btn" data-value="${auth}">Copiar</button></div>
-    <div class="credential-item"><span>Recovery Codes: </span><span class="credential-value">••••••••</span><button class="copy-btn" data-value="${recovery}">Copiar</button></div>
-    <div class="credential-item"><span>Cookie: </span><span class="credential-value">••••••••</span><button class="copy-btn" data-value="${cookie}">Copiar</button></div>`;
-}
-
-  // Tipo ip-only: só IP (além de usuário/senha já adicionados)
-  if (type === 'ip') {
-    if (ipVal) {
+  // Tipo auth: Auth + Recovery Codes + Cookie
+  if (type === 'auth') {
+    if (authVal) {
       credentialsHTML += `
         <div class="credential-item">
-          <span>IP: </span><span class="credential-value">${ipVal}</span>
-          <button class="copy-btn" data-value="${ipVal}">Copiar</button>
+          <span>Auth: </span><span class="credential-value">••••••••</span>
+          <button class="copy-btn" data-value="${authVal}">Copiar</button>
+        </div>`;
+    }
+    if (recoveryVal) {
+      credentialsHTML += `
+        <div class="credential-item">
+          <span>Recovery: </span><span class="credential-value">••••••••</span>
+          <button class="copy-btn" data-value="${recoveryVal}">Copiar</button>
+        </div>`;
+    }
+    if (cookieVal) {
+      credentialsHTML += `
+        <div class="credential-item">
+          <span>Cookie: </span><span class="credential-value">••••••••</span>
+          <button class="copy-btn" data-value="${cookieVal}">Copiar</button>
         </div>`;
     }
   }
 
-  // Se nenhum campo além do título existir, mostramos só o título (já feito)
+  // Tipo ip: apenas IP
+  if (type === 'ip' && ipVal) {
+    credentialsHTML += `
+      <div class="credential-item">
+        <span>IP: </span><span class="credential-value">${ipVal}</span>
+        <button class="copy-btn" data-value="${ipVal}">Copiar</button>
+      </div>`;
+  }
+
+  // Se não houver credenciais, mostra mensagem
+  if (!credentialsHTML) {
+    credentialsHTML = `<div class="credential-item"><span class="credential-value">Sem credenciais disponíveis</span></div>`;
+  }
+
+  // Features da conta
   const features = (account.features && Array.isArray(account.features) && account.features.length > 0)
     ? account.features.map(f => `<li>${cleanDiscordText(f)}</li>`).join('')
     : '';
@@ -394,12 +857,12 @@ function createRobloxAccountElement(account, isOwner) {
     ${imageUrl ? `<img src="${imageUrl}" alt="${title}" class="drop-image">` : ''}
     <div class="drop-content">
       <h3 class="drop-title">${title}</h3>
-      <div class="drop-price">${robux ? robux + " Robux" : ""} ${age ? "• " + age : ""}</div>
+      ${robux || age ? `<div class="drop-price">${robux ? robux + " Robux" : ""} ${age ? "• " + age : ""}</div>` : ''}
       ${features ? `<ul class="drop-features">${features}</ul>` : ''}
       <div class="account-credentials">
-        ${credentialsHTML || `<div class="credential-item"><span class="credential-value">Sem credenciais visíveis</span></div>`}
+        ${credentialsHTML}
       </div>
-      <div class="drop-description">${cleanDiscordText(account.description) || ''}</div>
+      ${account.description ? `<div class="drop-description">${cleanDiscordText(account.description)}</div>` : ''}
       <div class="drop-footer">
         <button class="claim-btn">Resgatar Agora</button>
         ${isOwner ? '<button class="delete-btn">🗑️</button>' : ''}
@@ -418,6 +881,14 @@ function createRobloxAccountElement(account, isOwner) {
     }
   }
 
+  // Botão de resgatar
+  const claimBtn = card.querySelector('.claim-btn');
+  if (claimBtn) {
+    claimBtn.addEventListener('click', () => {
+      alert(`Conta "${usernameVal || title}" resgatada com sucesso!`);
+    });
+  }
+
   return card;
 }
 
@@ -427,9 +898,11 @@ async function deleteDrop(id) {
     const token = localStorage.getItem('discord_token');
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     const res = await fetch(`${BACKEND_URL}/api/drops/${id}`, { method: 'DELETE', headers });
+    
     if (!res.ok) throw new Error('Erro ao deletar');
+    
     drops = drops.filter(d => d.id !== id);
-    renderDrops();
+    renderDrops(currentFilter);
   } catch (e) {
     console.error(e);
     showError('Erro ao deletar');
@@ -437,21 +910,45 @@ async function deleteDrop(id) {
 }
 
 /* utilidades UI */
-function clearDrops() { dropsGrid.innerHTML = ''; }
-function showNoAccessMessage() {
-  dropsGrid.innerHTML = `<div class="no-drops"><h3>Acesso Restrito</h3><p>Você precisa ser membro do servidor.</p></div>`;
-}
-function showNoDropsMessage(filter = 'all') {
-  dropsGrid.innerHTML = `<div class="no-drops"><h3>Nenhuma conta disponível</h3><p>${filter === 'vip' ? 'Seja VIP para ver as contas VIP.' : 'Volte mais tarde!'}</p></div>`;
+function clearDrops() { 
+  dropsGrid.innerHTML = ''; 
 }
 
-/* filtros (mantive os handlers) */
+function showNoAccessMessage() {
+  dropsGrid.innerHTML = `
+    <div class="no-drops">
+      <h3>Acesso Restrito</h3>
+      <p>Você precisa fazer login e ser membro do servidor para visualizar as contas.</p>
+    </div>
+  `;
+}
+
+function showNoVipAccessMessage() {
+  dropsGrid.innerHTML = `
+    <div class="no-drops">
+      <h3>Acesso VIP Necessário</h3>
+      <p>Você precisa ser VIP para visualizar as contas VIP.</p>
+    </div>
+  `;
+}
+
+function showNoDropsMessage(filter = 'all') {
+  dropsGrid.innerHTML = `
+    <div class="no-drops">
+      <h3>Nenhuma conta disponível</h3>
+      <p>${filter === 'vip' ? 'Não há contas VIP disponíveis no momento.' : 'Volte mais tarde para ver novas contas!'}</p>
+    </div>
+  `;
+}
+
+/* filtros */
 function setupFilters() {
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      renderDrops(btn.dataset.filter);
+      currentFilter = btn.dataset.filter;
+      renderDrops(currentFilter);
     });
   });
 }
