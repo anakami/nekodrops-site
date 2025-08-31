@@ -287,7 +287,7 @@
       const card = document.createElement('div');
       card.className = 'drop-card'; card.dataset.id = account.id;
 
-      const username = cleanDiscordText(account.username) || "";
+      const username = cleanDiscordText(account.username) || "Conta Roblox";
       const robux = cleanDiscordText(account.robux) || "";
       const age = cleanDiscordText(account.age) || "";
       const description = cleanDiscordText(account.description) || cleanDiscordText(account.message) || cleanDiscordText(account.content) || "";
@@ -299,40 +299,55 @@
 
       const cookie = cleanDiscordText(account.cookie) || "";
       const auth = cleanDiscordText(account.authenticator) || "";
+      const recovery = cleanDiscordText(account.recovery) || "";
       const ip = cleanDiscordText(account.ip) || "";
+      const password = cleanDiscordText(account.password) || "";
+
+      // 🔹 Decide o tipo
+      let type = "basic";
+      if (cookie) type = "cookie";
+      else if (auth) type = "auth";
+      else if (ip) type = "ip";
 
       card.innerHTML = `
         ${isVipOnly ? '<div class="vip-badge">VIP</div>' : '<div class="drop-badge">ROBLOX</div>'}
         <img src="${imageUrl}" alt="${username}" class="drop-image">
         <div class="drop-content">
-          <h3 class="drop-title">${username || "Conta Roblox"}</h3>
+          <h3 class="drop-title">${username}</h3>
           <div class="drop-price">${robux ? robux + " Robux" : ""} ${age}</div>
           <ul class="drop-features">${features.map(f => `<li>${f}</li>`).join('')}</ul>
           <div class="account-credentials">
-            ${username ? `
             <div class="credential-item">
               <span>Usuário: </span><span class="credential-value">${username}</span>
               <button class="copy-btn" data-value="${username}">Copiar</button>
-            </div>` : ""}
-            ${account.password ? `
+            </div>
+            ${password ? `
             <div class="credential-item">
               <span>Senha: </span><span class="credential-value">••••••••</span>
-              <button class="copy-btn" data-value="${cleanDiscordText(account.password)}">Copiar</button>
+              <button class="copy-btn" data-value="${password}">Copiar</button>
             </div>` : ""}
-            ${auth && !cookie ? `
-            <div class="credential-item">
-              <span>Auth: </span><span class="credential-value">••••••••</span>
-              <button class="copy-btn" data-value="${auth}">Copiar</button>
-            </div>` : ""}
-            ${ip && !auth && !cookie ? `
-            <div class="credential-item">
-              <span>IP: </span><span class="credential-value">${ip}</span>
-              <button class="copy-btn" data-value="${ip}">Copiar</button>
-            </div>` : ""}
-            ${cookie && !auth ? `
+
+            ${type === "cookie" ? `
             <div class="credential-item">
               <span>Cookie: </span><span class="credential-value">••••••••</span>
               <button class="copy-btn" data-value="${cookie}">Copiar</button>
+            </div>` : ""}
+
+            ${type === "auth" ? `
+            <div class="credential-item">
+              <span>Auth: </span><span class="credential-value">••••••••</span>
+              <button class="copy-btn" data-value="${auth}">Copiar</button>
+            </div>
+            ${recovery ? `
+            <div class="credential-item">
+              <span>Recovery Codes: </span><span class="credential-value">••••••••</span>
+              <button class="copy-btn" data-value="${recovery}">Copiar</button>
+            </div>` : ""}` : ""}
+
+            ${type === "ip" ? `
+            <div class="credential-item">
+              <span>IP: </span><span class="credential-value">${ip}</span>
+              <button class="copy-btn" data-value="${ip}">Copiar</button>
             </div>` : ""}
           </div>
           <p class="drop-description">${description}</p>
