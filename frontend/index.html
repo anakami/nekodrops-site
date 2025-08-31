@@ -15,18 +15,6 @@
       font-size: 12px; background: #f44336; color: white;
     }
     .connection-status.connected { background: #4CAF50; }
-    .drop-notification {
-      position: fixed; top: 50px; right: 10px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white; padding: 15px; border-radius: 10px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      z-index: 999; max-width: 250px; font-size: 14px;
-      animation: slideIn 0.3s ease;
-    }
-    @keyframes slideIn {
-      from { transform: translateX(100px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
   </style>
 </head>
 <body>
@@ -58,45 +46,13 @@
     </div>
   </div>
 
-  <div id="login-modal" class="modal">
-    <div class="modal-content">
-      <h2 class="modal-title">Entrar com Discord</h2>
-      <p>Para acessar as contas, você precisa fazer login com sua conta do Discord e ser membro do nosso servidor.</p>
-      <button id="modal-login-btn" class="modal-btn">Continuar com Discord</button>
-    </div>
-  </div>
-
-  <div id="error-modal" class="modal">
-    <div class="modal-content">
-      <h2 class="modal-title">Erro de Acesso</h2>
-      <p id="error-message">Você precisa ser membro do servidor para acessar as contas.</p>
-      <button class="modal-btn" id="error-close-btn">Fechar</button>
-    </div>
-  </div>
-
   <script>
-    const CLIENT_ID = "1410654667490197641";
-    const REDIRECT_URI = "https://nekodrops-site.onrender.com/";
-    const SERVER_ID = "1399661543284805763";
-    const MEMBER_ROLE_ID = "1399662113114296360";
+    const BACKEND_URL = 'https://nekodrops-backend.onrender.com';
     const VIP_ROLE_ID = "1399662852448587859";
     const OWNER_ROLE_ID = "1399664650638856303";
-    const BACKEND_URL = 'https://nekodrops-backend.onrender.com';
 
-    const loginBtn = document.getElementById('login-btn');
-    const userInfo = document.getElementById('user-info');
-    const userAvatar = document.getElementById('user-avatar');
-    const username = document.getElementById('username');
     const dropsGrid = document.getElementById('drops-grid');
-    const loginModal = document.getElementById('login-modal');
-    const errorModal = document.getElementById('error-modal');
-    const errorMessage = document.getElementById('error-message');
-    const errorCloseBtn = document.getElementById('error-close-btn');
-    const modalLoginBtn = document.getElementById('modal-login-btn');
-    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
-    const filters = document.querySelector('.filters');
     const connectionStatus = document.getElementById('connection-status');
-
     let user = null, userRoles = [], drops = [], socket = null;
 
     function cleanDiscordText(text) {
@@ -105,14 +61,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      checkAuth();
-      setupEventListeners();
-      setupFilters();
-      setupCopyButtons();
-      setupModalClosing();
-      setupMobileMenu();
-      processAuthResponse();
       setupWebSocket();
+      loadDrops();
     });
 
     function setupWebSocket() {
@@ -129,142 +79,9 @@
       socket.on('drop-deleted', id => { drops = drops.filter(d => d.id !== id); renderDrops(); });
     }
 
-    function setupEventListeners() {
-      if (loginBtn) {
-        loginBtn.addEventListener('click', () => {
-          if (user) logout(); else {
-            loginModal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-          }
-        });
-      }
-      if (modalLoginBtn) {
-        modalLoginBtn.addEventListener('click', e => {
-          e.preventDefault(); loginWithDiscord();
-        });
-      }
-    }
-
-    function setupModalClosing() {
-      document.addEventListener('click', e => {
-        if (e.target === loginModal || e.target === errorModal) {
-          loginModal.style.display = 'none';
-          errorModal.style.display = 'none';
-          document.body.style.overflow = 'auto';
-        }
-      });
-      document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') {
-          loginModal.style.display = 'none';
-          errorModal.style.display = 'none';
-          document.body.style.overflow = 'auto';
-        }
-      });
-      if (errorCloseBtn) errorCloseBtn.addEventListener('click', () => {
-        errorModal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-      });
-    }
-
-    function setupMobileMenu() {
-      mobileMenuBtn.addEventListener('click', e => {
-        e.stopPropagation(); filters.classList.toggle('active');
-      });
-      document.addEventListener('click', e => {
-        if (!e.target.closest('.filters') && !e.target.closest('.mobile-menu-btn')) {
-          filters.classList.remove('active');
-        }
-      });
-      window.addEventListener('resize', () => {
-        if (window.innerWidth > 768) filters.classList.remove('active');
-      });
-    }
-
-    function setupCopyButtons() {
-      document.addEventListener('click', e => {
-        if (e.target.classList.contains('copy-btn')) {
-          const value = e.target.getAttribute('data-value');
-          navigator.clipboard.writeText(value);
-        }
-      });
-    }
-
-    function setupFilters() {
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          renderDrops(btn.dataset.filter);
-        });
-      });
-    }
-
-    function checkAuth() {
-      const token = localStorage.getItem('discord_token');
-      const userData = localStorage.getItem('discord_user');
-      const rolesData = localStorage.getItem('discord_roles');
-      if (token && userData) {
-        user = JSON.parse(userData);
-        if (rolesData) userRoles = JSON.parse(rolesData);
-        if (userRoles.length > 0) { updateUIAfterLogin(); loadDrops(); }
-        else checkUserRoles(token);
-      } else showNoAccessMessage();
-    }
-
-    function loginWithDiscord() { window.location.href = `${BACKEND_URL}/auth/discord`; }
-
-    function processAuthResponse() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('token'), error = urlParams.get('error');
-      if (error) { showError("Erro ao fazer login."); return; }
-      if (token) {
-        localStorage.setItem('discord_token', token);
-        getUserInfo(token);
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-
-    async function getUserInfo(token) {
-      const res = await fetch(`${BACKEND_URL}/api/user-info`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (!data.canAccess) { showError("Você precisa ser membro do servidor."); logout(); return; }
-        user = { id: data.userId, username: data.username, avatar: data.avatar };
-        userRoles = data.roles;
-        localStorage.setItem('discord_user', JSON.stringify(user));
-        localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-        updateUIAfterLogin(); loadDrops();
-      }
-    }
-
-    function updateUIAfterLogin() {
-      loginBtn.textContent = 'Sair';
-      if (user.avatar) userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
-      username.textContent = user.username;
-      userInfo.classList.remove('hidden'); loginModal.style.display = 'none';
-      document.body.style.overflow = 'auto';
-    }
-
-    function logout() {
-      localStorage.clear();
-      user = null; userRoles = [];
-      loginBtn.textContent = 'Entrar com Discord';
-      userInfo.classList.add('hidden'); clearDrops(); showNoAccessMessage();
-      if (socket) { socket.disconnect(); connectionStatus.textContent = '❌ Desconectado'; connectionStatus.classList.remove('connected'); }
-    }
-
-    function showError(msg) {
-      errorMessage.textContent = msg; errorModal.style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-    }
-
     async function loadDrops() {
       try {
-        const token = localStorage.getItem('discord_token');
-        if (!token) { showNoAccessMessage(); return; }
-        const res = await fetch(`${BACKEND_URL}/api/drops`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await fetch(`${BACKEND_URL}/api/drops`);
         const data = await res.json();
         drops = data.success ? data.drops : [];
       } catch { drops = []; }
@@ -273,14 +90,11 @@
 
     function renderDrops(filter = 'all') {
       clearDrops();
-      if (!user || userRoles.length === 0) { showNoAccessMessage(); return; }
-      const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
-      const isOwner = userRoles.includes(OWNER_ROLE_ID);
-      let filtered = drops;
-      if (filter === 'normal') filtered = drops.filter(d => !d.isVip);
-      else if (filter === 'vip') { if (!canSeeVip) { showNoDropsMessage(filter); return; } filtered = drops.filter(d => d.isVip); }
-      if (!filtered.length) { showNoDropsMessage(filter); return; }
-      filtered.forEach(d => dropsGrid.appendChild(createRobloxAccountElement(d, isOwner)));
+      if (!drops.length) {
+        dropsGrid.innerHTML = `<div class="no-drops"><h3>Nenhuma conta disponível</h3></div>`;
+        return;
+      }
+      drops.forEach(d => dropsGrid.appendChild(createRobloxAccountElement(d, true)));
     }
 
     function createRobloxAccountElement(account, isOwner) {
@@ -288,69 +102,72 @@
       card.className = 'drop-card'; card.dataset.id = account.id;
 
       const username = cleanDiscordText(account.username) || "Conta Roblox";
-      const robux = cleanDiscordText(account.robux) || "";
-      const age = cleanDiscordText(account.age) || "";
-      const description = cleanDiscordText(account.description) || cleanDiscordText(account.message) || cleanDiscordText(account.content) || "";
-      const features = (account.features && Array.isArray(account.features) && account.features.length > 0
-        ? account.features.map(f => cleanDiscordText(f))
-        : []);
-      const imageUrl = account.imageUrl || "https://via.placeholder.com/300x160/5865F2/FFFFFF?text=Roblox+Drop";
-      const isVipOnly = account.isVip || false;
-
+      const password = cleanDiscordText(account.password) || "";
       const cookie = cleanDiscordText(account.cookie) || "";
+      const ip = cleanDiscordText(account.ip) || "";
       const auth = cleanDiscordText(account.authenticator) || "";
       const recovery = cleanDiscordText(account.recovery) || "";
-      const ip = cleanDiscordText(account.ip) || "";
-      const password = cleanDiscordText(account.password) || "";
 
-      // 🔹 Decide o tipo
-      let type = "basic";
-      if (cookie) type = "cookie";
-      else if (auth) type = "auth";
+      // 🔹 Detecta o tipo de embed
+      let type = "";
+      if (auth) type = "auth";
+      else if (cookie && ip) type = "cookie";
       else if (ip) type = "ip";
 
+      let credentialsHTML = `
+        <div class="credential-item">
+          <span>Usuário: </span><span class="credential-value">${username}</span>
+          <button class="copy-btn" data-value="${username}">Copiar</button>
+        </div>
+        ${password ? `
+        <div class="credential-item">
+          <span>Senha: </span><span class="credential-value">••••••••</span>
+          <button class="copy-btn" data-value="${password}">Copiar</button>
+        </div>` : ""}
+      `;
+
+      if (type === "cookie") {
+        credentialsHTML += `
+          <div class="credential-item">
+            <span>IP: </span><span class="credential-value">${ip}</span>
+            <button class="copy-btn" data-value="${ip}">Copiar</button>
+          </div>
+          <div class="credential-item">
+            <span>Cookie: </span><span class="credential-value">••••••••</span>
+            <button class="copy-btn" data-value="${cookie}">Copiar</button>
+          </div>`;
+      }
+
+      if (type === "auth") {
+        credentialsHTML += `
+          <div class="credential-item">
+            <span>Auth: </span><span class="credential-value">••••••••</span>
+            <button class="copy-btn" data-value="${auth}">Copiar</button>
+          </div>
+          ${recovery ? `
+          <div class="credential-item">
+            <span>Recovery Codes: </span><span class="credential-value">••••••••</span>
+            <button class="copy-btn" data-value="${recovery}">Copiar</button>
+          </div>` : ""}
+          <div class="credential-item">
+            <span>Cookie: </span><span class="credential-value">••••••••</span>
+            <button class="copy-btn" data-value="${cookie}">Copiar</button>
+          </div>`;
+      }
+
+      if (type === "ip") {
+        credentialsHTML += `
+          <div class="credential-item">
+            <span>IP: </span><span class="credential-value">${ip}</span>
+            <button class="copy-btn" data-value="${ip}">Copiar</button>
+          </div>`;
+      }
+
       card.innerHTML = `
-        ${isVipOnly ? '<div class="vip-badge">VIP</div>' : '<div class="drop-badge">ROBLOX</div>'}
-        <img src="${imageUrl}" alt="${username}" class="drop-image">
+        <div class="drop-badge">ROBLOX</div>
         <div class="drop-content">
           <h3 class="drop-title">${username}</h3>
-          <div class="drop-price">${robux ? robux + " Robux" : ""} ${age}</div>
-          <ul class="drop-features">${features.map(f => `<li>${f}</li>`).join('')}</ul>
-          <div class="account-credentials">
-            <div class="credential-item">
-              <span>Usuário: </span><span class="credential-value">${username}</span>
-              <button class="copy-btn" data-value="${username}">Copiar</button>
-            </div>
-            ${password ? `
-            <div class="credential-item">
-              <span>Senha: </span><span class="credential-value">••••••••</span>
-              <button class="copy-btn" data-value="${password}">Copiar</button>
-            </div>` : ""}
-
-            ${type === "cookie" ? `
-            <div class="credential-item">
-              <span>Cookie: </span><span class="credential-value">••••••••</span>
-              <button class="copy-btn" data-value="${cookie}">Copiar</button>
-            </div>` : ""}
-
-            ${type === "auth" ? `
-            <div class="credential-item">
-              <span>Auth: </span><span class="credential-value">••••••••</span>
-              <button class="copy-btn" data-value="${auth}">Copiar</button>
-            </div>
-            ${recovery ? `
-            <div class="credential-item">
-              <span>Recovery Codes: </span><span class="credential-value">••••••••</span>
-              <button class="copy-btn" data-value="${recovery}">Copiar</button>
-            </div>` : ""}` : ""}
-
-            ${type === "ip" ? `
-            <div class="credential-item">
-              <span>IP: </span><span class="credential-value">${ip}</span>
-              <button class="copy-btn" data-value="${ip}">Copiar</button>
-            </div>` : ""}
-          </div>
-          <p class="drop-description">${description}</p>
+          <div class="account-credentials">${credentialsHTML}</div>
           <div class="drop-footer">
             <button class="claim-btn">Resgatar Agora</button>
             ${isOwner ? '<button class="delete-btn">🗑️</button>' : ''}
@@ -370,21 +187,12 @@
 
     async function deleteDrop(id) {
       try {
-        const token = localStorage.getItem('discord_token');
-        await fetch(`${BACKEND_URL}/api/drops/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+        await fetch(`${BACKEND_URL}/api/drops/${id}`, { method: 'DELETE' });
         drops = drops.filter(d => d.id !== id); renderDrops();
-      } catch { showError('Erro ao deletar'); }
+      } catch { alert("Erro ao deletar"); }
     }
 
     function clearDrops() { dropsGrid.innerHTML = ''; }
-
-    function showNoAccessMessage() {
-      dropsGrid.innerHTML = `<div class="no-drops"><h3>Acesso Restrito</h3><p>Você precisa ser membro do servidor.</p></div>`;
-    }
-
-    function showNoDropsMessage(filter = 'all') {
-      dropsGrid.innerHTML = `<div class="no-drops"><h3>Nenhuma conta disponível</h3><p>${filter === 'vip' ? 'Seja VIP para ver as contas VIP.' : 'Volte mais tarde!'}</p></div>`;
-    }
   </script>
 </body>
 </html>
