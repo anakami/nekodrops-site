@@ -404,7 +404,7 @@
   <div id="login-modal" class="modal">
     <div class="modal-content">
       <h2 class="modal-title">Entrar com Discord</h2>
-      <p>Para acessar as contas, você precisa fazer login com sua conta do Discord e ser membro do nosso servidor.</p>
+      <p>Para acessar das contas, você precisa fazer login com sua conta do Discord e ser membro do nosso servidor.</p>
       <button id="modal-login-btn" class="modal-btn">Continuar com Discord</button>
     </div>
   </div>
@@ -454,6 +454,17 @@ function cleanDiscordText(text) {
   return s;
 }
 
+/* Extrai apenas o IP de um link markdown */
+function extractIPFromLink(text) {
+  if (!text) return "";
+  // Procura por padrão [IP](link)
+  const markdownMatch = text.match(/\[([^\]]+)\]\([^)]+\)/);
+  if (markdownMatch && markdownMatch[1]) {
+    return markdownMatch[1];
+  }
+  return text;
+}
+
 /* Delegação: copiar valores */
 function setupCopyButtons() {
   document.addEventListener('click', e => {
@@ -479,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCopyButtons();
   setupModalClosing();
   setupMobileMenu();
-  checkAuth(); // Esta linha estava faltando - agora verifica autenticação ao carregar
+  checkAuth();
   processAuthResponse();
   setupWebSocket();
 });
@@ -743,7 +754,7 @@ function renderDrops(filter = 'all') {
   });
 }
 
-/* Função central: cria o card respeitando os 3 tipos sem sobrescrever */
+/* Função central: cria o card respeitando os diferentes tipos de embed */
 function createRobloxAccountElement(account, isOwner) {
   const card = document.createElement('div');
   card.className = 'drop-card'; 
@@ -757,11 +768,15 @@ function createRobloxAccountElement(account, isOwner) {
   const authVal = cleanDiscordText(account.authenticator || account.auth);
   const recoveryVal = cleanDiscordText(account.recovery || account.recovery_codes || account.recoveryCodes);
 
-  // Detecta tipo com precedência (auth > cookie+ip > ip-only)
+  // Extrai IP de links markdown se necessário
+  const cleanIpVal = extractIPFromLink(ipVal);
+
+  // Detecta tipo com precedência (auth > cookie+ip > ip-only > username+password)
   let type = 'basic';
   if (authVal) type = 'auth';
   else if (cookieVal && ipVal) type = 'primary';
   else if (ipVal) type = 'ip';
+  else if (usernameVal && passwordVal) type = 'credentials'; // NOVO TIPO: apenas username e password
 
   // Cabeçalho / imagem
   const imageUrl = account.imageUrl || account.image || account.thumbnail || '';
@@ -792,11 +807,11 @@ function createRobloxAccountElement(account, isOwner) {
 
   // Tipo primary: IP + Cookie
   if (type === 'primary') {
-    if (ipVal) {
+    if (cleanIpVal) {
       credentialsHTML += `
         <div class="credential-item">
-          <span>IP: </span><span class="credential-value">${ipVal}</span>
-          <button class="copy-btn" data-value="${ipVal}">Copiar</button>
+          <span>IP: </span><span class="credential-value">${cleanIpVal}</span>
+          <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
         </div>`;
     }
     if (cookieVal) {
@@ -833,15 +848,16 @@ function createRobloxAccountElement(account, isOwner) {
     }
   }
 
-  // Tipo ip: apenas IP
-  if (type === 'ip' && ipVal) {
+  // Tipo ip: apenas IP (além de usuário/senha já adicionados)
+  if (type === 'ip' && cleanIpVal) {
     credentialsHTML += `
       <div class="credential-item">
-        <span>IP: </span><span class="credential-value">${ipVal}</span>
-        <button class="copy-btn" data-value="${ipVal}">Copiar</button>
+        <span>IP: </span><span class="credential-value">${cleanIpVal}</span>
+        <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
       </div>`;
   }
 
+  // Tipo credentials: apenas username e password (já adicionados acima)
   // Se não houver credenciais, mostra mensagem
   if (!credentialsHTML) {
     credentialsHTML = `<div class="credential-item"><span class="credential-value">Sem credenciais disponíveis</span></div>`;
