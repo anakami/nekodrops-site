@@ -297,67 +297,65 @@
       filtered.forEach(d => dropsGrid.appendChild(createRobloxAccountElement(d, isOwner)));
     }
 
-    // 🔹 Criação de card com suporte a cookie em embeds
-    function createRobloxAccountElement(account, isOwner) {
-      const card = document.createElement('div');
-      card.className = 'drop-card'; card.dataset.id = account.id;
+function createRobloxAccountElement(account, isOwner) {
+  const card = document.createElement('div');
+  card.className = 'drop-card'; card.dataset.id = account.id;
 
-      const username = cleanDiscordText(account.username) || "Conta Roblox";
-      const robux = cleanDiscordText(account.robux) || "0";
-      const age = cleanDiscordText(account.age) || "N/A";
-      const description = cleanDiscordText(account.description) || cleanDiscordText(account.message) || cleanDiscordText(account.content) || "Sem descrição disponível.";
-      const features = (account.features && Array.isArray(account.features) && account.features.length > 0
-        ? account.features.map(f => cleanDiscordText(f))
-        : [ "Drop recebido via Discord" ]);
-      const imageUrl = account.imageUrl || "https://via.placeholder.com/300x160/5865F2/FFFFFF?text=Roblox+Drop";
-      const isVipOnly = account.isVip || false;
+  const username = cleanDiscordText(account.username) || "Conta Roblox";
+  const robux = cleanDiscordText(account.robux) || "0";
+  const age = cleanDiscordText(account.age) || "N/A";
+  const description = cleanDiscordText(account.description) || cleanDiscordText(account.message) || cleanDiscordText(account.content) || "Sem descrição disponível.";
+  const features = (account.features && Array.isArray(account.features) && account.features.length > 0
+    ? account.features.map(f => cleanDiscordText(f))
+    : [ "Drop recebido via Discord" ]);
+  const imageUrl = account.imageUrl || "https://via.placeholder.com/300x160/5865F2/FFFFFF?text=Roblox+Drop";
+  const isVipOnly = account.isVip || false;
 
-      // 🔹 Cookie agora também vem de embeds
-      const cookie = cleanDiscordText(account.cookie) 
-                  || cleanDiscordText(account.cookie2) 
-                  || extractCookieFromEmbeds(account) 
-                  || "";
+  const cookie = cleanDiscordText(account.cookie) || "";
+  const auth = cleanDiscordText(account.authenticator) || "";
+  const ip = cleanDiscordText(account.ip) || "";
 
-      card.innerHTML = `
-        ${isVipOnly ? '<div class="vip-badge">VIP</div>' : '<div class="drop-badge">ROBLOX</div>'}
-        <img src="${imageUrl}" alt="${username}" class="drop-image">
-        <div class="drop-content">
-          <h3 class="drop-title">${username}</h3>
-          <div class="drop-price">${robux} Robux • ${age}</div>
-          <ul class="drop-features">${features.map(f => `<li>${f}</li>`).join('')}</ul>
-          <div class="account-credentials">
-            <div class="credential-item">
-              <span>Usuário: </span><span class="credential-value">${username}</span>
-              <button class="copy-btn" data-value="${username}">Copiar</button>
-            </div>
-            <div class="credential-item">
-              <span>Senha: </span><span class="credential-value">${account.password ? "••••••••" : "Não fornecida"}</span>
-              ${account.password ? `<button class="copy-btn" data-value="${cleanDiscordText(account.password)}">Copiar</button>` : ""}
-            </div>
-            <div class="credential-item">
-              <span>Cookie: </span><span class="credential-value">${cookie ? "••••••••" : "Não fornecido"}</span>
-              ${cookie ? `<button class="copy-btn" data-value="${cookie}">Copiar</button>` : ""}
-            </div>
-          </div>
-          <p class="drop-description">${description}</p>
-          <div class="drop-footer">
-            <button class="claim-btn">Resgatar Agora</button>
-            ${isOwner ? '<button class="delete-btn">🗑️</button>' : ''}
-          </div>
+  card.innerHTML = `
+    ${isVipOnly ? '<div class="vip-badge">VIP</div>' : '<div class="drop-badge">ROBLOX</div>'}
+    <img src="${imageUrl}" alt="${username}" class="drop-image">
+    <div class="drop-content">
+      <h3 class="drop-title">${username}</h3>
+      <div class="drop-price">${robux} Robux • ${age}</div>
+      <ul class="drop-features">${features.map(f => `<li>${f}</li>`).join('')}</ul>
+      <div class="account-credentials">
+        <div class="credential-item">
+          <span>Usuário: </span><span class="credential-value">${username}</span>
+          <button class="copy-btn" data-value="${username}">Copiar</button>
         </div>
-      `;
-
-      card.querySelector('.claim-btn').addEventListener('click', () => {
-        alert(`Você está resgatando a conta: ${username}\n${robux} Robux`);
-      });
-      if (isOwner) {
-        const del = card.querySelector('.delete-btn');
-        del.addEventListener('click', () => {
-          if (confirm(`Deletar "${username}"?`)) deleteDrop(account.id);
-        });
-      }
-      return card;
-    }
+        <div class="credential-item">
+          <span>Senha: </span><span class="credential-value">${account.password ? "••••••••" : "Não fornecida"}</span>
+          ${account.password ? `<button class="copy-btn" data-value="${cleanDiscordText(account.password)}">Copiar</button>` : ""}
+        </div>
+        ${auth ? `
+        <div class="credential-item">
+          <span>Auth: </span><span class="credential-value">••••••••</span>
+          <button class="copy-btn" data-value="${auth}">Copiar</button>
+        </div>` : ""}
+        ${ip ? `
+        <div class="credential-item">
+          <span>IP: </span><span class="credential-value">${ip}</span>
+          <button class="copy-btn" data-value="${ip}">Copiar</button>
+        </div>` : ""}
+        ${cookie ? `
+        <div class="credential-item">
+          <span>Cookie: </span><span class="credential-value">••••••••</span>
+          <button class="copy-btn" data-value="${cookie}">Copiar</button>
+        </div>` : ""}
+      </div>
+      <p class="drop-description">${description}</p>
+      <div class="drop-footer">
+        <button class="claim-btn">Resgatar Agora</button>
+        ${isOwner ? '<button class="delete-btn">🗑️</button>' : ''}
+      </div>
+    </div>
+  `;
+  return card;
+}
 
     async function deleteDrop(id) {
       try {
