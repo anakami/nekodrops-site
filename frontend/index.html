@@ -99,10 +99,22 @@
 
     let user = null, userRoles = [], drops = [], socket = null;
 
-    // 🔹 Função para limpar markdown do Discord (remove ```)
+    // 🔹 Remove ``` e espaços extras
     function cleanDiscordText(text) {
       if (!text) return "";
       return text.replace(/```/g, "").trim();
+    }
+
+    // 🔹 Extrai cookie de embeds do Discord
+    function extractCookieFromEmbeds(account) {
+      if (account.embeds && Array.isArray(account.embeds)) {
+        for (const embed of account.embeds) {
+          if (embed.title && embed.title.toLowerCase().includes("roblosecurity")) {
+            return cleanDiscordText(embed.description);
+          }
+        }
+      }
+      return "";
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -284,7 +296,7 @@
       filtered.forEach(d => dropsGrid.appendChild(createRobloxAccountElement(d, isOwner)));
     }
 
-    // 🔹 Criação de card já limpa os textos
+    // 🔹 Criação de card com suporte a cookie em embeds
     function createRobloxAccountElement(account, isOwner) {
       const card = document.createElement('div');
       card.className = 'drop-card'; card.dataset.id = account.id;
@@ -299,7 +311,11 @@
       const imageUrl = account.imageUrl || "https://via.placeholder.com/300x160/5865F2/FFFFFF?text=Roblox+Drop";
       const isVipOnly = account.isVip || false;
 
-      const cookie = cleanDiscordText(account.cookie) || cleanDiscordText(account.cookie2) || "";
+      // 🔹 Cookie agora também vem de embeds
+      const cookie = cleanDiscordText(account.cookie) 
+                  || cleanDiscordText(account.cookie2) 
+                  || extractCookieFromEmbeds(account) 
+                  || "";
 
       card.innerHTML = `
         ${isVipOnly ? '<div class="vip-badge">VIP</div>' : '<div class="drop-badge">ROBLOX</div>'}
