@@ -9,7 +9,6 @@
     <!-- Socket.io CDN para WebSocket -->
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
-        /* Estilos adicionais para WebSocket */
         .connection-status {
             position: fixed;
             top: 10px;
@@ -22,11 +21,9 @@
             background: #f44336;
             color: white;
         }
-        
         .connection-status.connected {
             background: #4CAF50;
         }
-        
         .drop-notification {
             position: fixed;
             top: 50px;
@@ -41,7 +38,6 @@
             font-size: 14px;
             animation: slideIn 0.3s ease;
         }
-        
         @keyframes slideIn {
             from { transform: translateX(100px); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
@@ -107,7 +103,6 @@
         const VIP_ROLE_ID = "1399662852448587859";
         const OWNER_ROLE_ID = "1399664650638856303";
 
-        // URL do backend - Render
         const BACKEND_URL = 'https://nekodrops-backend.onrender.com';
 
         // Elementos DOM
@@ -125,63 +120,11 @@
         const filters = document.querySelector('.filters');
         const connectionStatus = document.getElementById('connection-status');
 
-        // Estado da aplicação
         let user = null;
         let userRoles = [];
         let drops = [];
         let socket = null;
 
-        // Dados de exemplo de contas Roblox
-        const sampleRobloxAccounts = [
-            {
-                id: 1,
-                messageId: "123456789",
-                username: "Ethchacoc",
-                password: "Lok1_3008'",
-                ip: "91.173.167.33",
-                robux: "0",
-                premium: false,
-                cookie: "COOKIE_ROBLOX_AQUI",
-                age: "1109 Dias",
-                status: "Unverified (No Email Address)",
-                description: "Conta Roblox com 1109 dias de idade. Ideal para quem busca uma conta estabelecida.",
-                features: [
-                    "Idade: 1109 Dias",
-                    "Status: Não verificado",
-                    "IP: 91.173.167.33",
-                    "Robux: 0",
-                    "Premium: Não"
-                ],
-                imageUrl: "https://via.placeholder.com/300x160/5865F2/FFFFFF?text=Roblox+Account",
-                isVip: false,
-                createdAt: "2023-11-15T10:30:00Z"
-            },
-            {
-                id: 2,
-                messageId: "987654321",
-                username: "VIP_Account",
-                password: "V1P_P@ssw0rd",
-                ip: "192.168.1.1",
-                robux: "5000",
-                premium: true,
-                cookie: "VIP_COOKIE_ROBLOX",
-                age: "500 Dias",
-                status: "Verified",
-                description: "Conta Roblox VIP com 5000 Robux e assinatura Premium.",
-                features: [
-                    "Idade: 500 Dias",
-                    "Status: Verificado",
-                    "IP: 192.168.1.1",
-                    "Robux: 5000",
-                    "Premium: Sim"
-                ],
-                imageUrl: "https://via.placeholder.com/300x160/FFD700/000000?text=VIP+Account",
-                isVip: true,
-                createdAt: "2023-10-01T14:20:00Z"
-            }
-        ];
-
-        // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
             checkAuth();
             setupEventListeners();
@@ -190,7 +133,7 @@
             setupModalClosing();
             setupMobileMenu();
             processAuthResponse();
-            setupWebSocket(); // Inicializar WebSocket
+            setupWebSocket();
         });
 
         // Configurar WebSocket
@@ -201,61 +144,31 @@
                 });
 
                 socket.on('connect', () => {
-                    console.log('✅ Conectado ao WebSocket');
                     connectionStatus.textContent = '✅ Conectado';
                     connectionStatus.classList.add('connected');
                 });
 
                 socket.on('disconnect', () => {
-                    console.log('❌ Desconectado do WebSocket');
                     connectionStatus.textContent = '❌ Desconectado';
                     connectionStatus.classList.remove('connected');
                 });
 
                 socket.on('new-drop', (dropData) => {
-                    console.log('🎉 Novo drop recebido via WebSocket:', dropData);
-                    showNewDropNotification(dropData);
-                    
-                    // Adicionar o novo drop à lista
                     drops.unshift(dropData);
                     renderDrops();
                 });
 
                 socket.on('drop-deleted', (dropId) => {
-                    console.log('🗑️ Drop removido:', dropId);
-                    // Remover drop da lista
                     drops = drops.filter(drop => drop.id !== dropId);
                     renderDrops();
                 });
 
             } catch (error) {
-                console.error('❌ Erro ao conectar WebSocket:', error);
+                console.error('Erro ao conectar WebSocket:', error);
             }
         }
 
-        // Mostrar notificação de novo drop
-        function showNewDropNotification(dropData) {
-            const notification = document.createElement('div');
-            notification.className = 'drop-notification';
-            notification.innerHTML = `
-                <strong>🎁 NOVO DROP!</strong>
-                <p>👤 ${dropData.username}</p>
-                <p>🪙 ${dropData.robux} Robux</p>
-                <small>${new Date().toLocaleTimeString()}</small>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // Remover após 5 segundos
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, 5000);
-        }
-
         function setupEventListeners() {
-            // Login com Discord
             if (loginBtn) {
                 loginBtn.addEventListener('click', () => {
                     if (user) {
@@ -266,8 +179,6 @@
                     }
                 });
             }
-
-            // Modal login button
             if (modalLoginBtn) {
                 modalLoginBtn.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -276,9 +187,7 @@
             }
         }
 
-        // Configurar fechamento de modais
         function setupModalClosing() {
-            // Fechar modais ao clicar fora
             document.addEventListener('click', (e) => {
                 if (e.target === loginModal) {
                     loginModal.style.display = 'none';
@@ -289,8 +198,6 @@
                     document.body.style.overflow = 'auto';
                 }
             });
-
-            // Fechar modais com tecla ESC
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     loginModal.style.display = 'none';
@@ -298,8 +205,6 @@
                     document.body.style.overflow = 'auto';
                 }
             });
-
-            // Botão de fechar no modal de erro
             if (errorCloseBtn) {
                 errorCloseBtn.addEventListener('click', () => {
                     errorModal.style.display = 'none';
@@ -308,22 +213,17 @@
             }
         }
 
-        // Configurar menu mobile
         function setupMobileMenu() {
             if (mobileMenuBtn && filters) {
                 mobileMenuBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     filters.classList.toggle('active');
                 });
-
-                // Fechar menu ao clicar fora
                 document.addEventListener('click', (e) => {
                     if (!e.target.closest('.filters') && !e.target.closest('.mobile-menu-btn')) {
                         filters.classList.remove('active');
                     }
                 });
-
-                // Fechar menu ao redimensionar para desktop
                 window.addEventListener('resize', () => {
                     if (window.innerWidth > 768) {
                         filters.classList.remove('active');
@@ -332,54 +232,26 @@
             }
         }
 
-        // Configurar botões de copiar
         function setupCopyButtons() {
             document.addEventListener('click', function(e) {
                 if (e.target.classList.contains('copy-btn')) {
                     const value = e.target.getAttribute('data-value');
-                    copyToClipboard(value, e.target);
+                    navigator.clipboard.writeText(value);
                 }
             });
         }
 
-        // Configurar filtros
         function setupFilters() {
             const filterBtns = document.querySelectorAll('.filter-btn');
-            
             filterBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     filterBtns.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    const filter = btn.dataset.filter;
-                    renderDrops(filter);
-                    
-                    // Fechar menu mobile após seleção
-                    if (window.innerWidth <= 768) {
-                        filters.classList.remove('active');
-                    }
+                    renderDrops(btn.dataset.filter);
                 });
             });
         }
 
-        // Função para copiar para a área de transferência
-        function copyToClipboard(text, button) {
-            navigator.clipboard.writeText(text).then(() => {
-                // Feedback visual
-                const originalText = button.textContent;
-                button.textContent = '✓ Copiado!';
-                button.style.background = '#00C853';
-                
-                setTimeout(() => {
-                    button.textContent = originalText;
-                    button.style.background = '';
-                }, 2000);
-            }).catch(err => {
-                console.error('Erro ao copiar:', err);
-                showError('Erro ao copiar. Tente novamente.');
-            });
-        }
-
-        // Verificar se o usuário está autenticado
         function checkAuth() {
             const token = localStorage.getItem('discord_token');
             const userData = localStorage.getItem('discord_user');
@@ -388,27 +260,21 @@
             if (token && userData) {
                 user = JSON.parse(userData);
                 if (rolesData) userRoles = JSON.parse(rolesData);
-                
                 if (userRoles.length > 0) {
                     updateUIAfterLogin();
                     loadDrops();
                 } else {
-                    // Tentar obter as roles novamente
                     checkUserRoles(token);
                 }
             } else {
-                // Mostrar estado não autenticado
                 showNoAccessMessage();
             }
         }
 
-        // Login com Discord OAuth2
         function loginWithDiscord() {
-            const authUrl = `${BACKEND_URL}/auth/discord`;
-            window.location.href = authUrl;
+            window.location.href = `${BACKEND_URL}/auth/discord`;
         }
 
-        // Processar resposta de autenticação
         function processAuthResponse() {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
@@ -416,107 +282,41 @@
             
             if (error) {
                 showError("Erro ao fazer login. Tente novamente.");
-                // Limpar parâmetros da URL
                 window.history.replaceState({}, document.title, window.location.pathname);
                 return;
             }
-            
             if (token) {
                 localStorage.setItem('discord_token', token);
                 getUserInfo(token);
-                
-                // Limpar parâmetros da URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         }
 
-        // Obter informações do usuário
         async function getUserInfo(token) {
             try {
                 const response = await fetch(`${BACKEND_URL}/api/user-info`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
                 if (response.ok) {
                     const data = await response.json();
-                    
                     if (!data.canAccess) {
-                        showError("Você precisa ser membro do servidor para acessar os drops.");
+                        showError("Você precisa ser membro do servidor.");
                         logout();
                         return;
                     }
-                    
-                    user = {
-                        id: data.userId,
-                        username: data.username,
-                        avatar: data.avatar
-                    };
-                    
+                    user = { id: data.userId, username: data.username, avatar: data.avatar };
                     userRoles = data.roles;
-                    user.isVip = data.isVip;
-                    user.isMember = data.isMember;
-                    
                     localStorage.setItem('discord_user', JSON.stringify(user));
                     localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-                    
                     updateUIAfterLogin();
                     loadDrops();
-                    
-                } else if (response.status === 403) {
-                    showError("Você precisa ser membro do servidor para acessar os drops.");
-                    logout();
-                } else {
-                    throw new Error('Falha ao obter informações do usuário');
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                showError("Erro ao fazer login. Tente novamente.");
                 logout();
             }
         }
 
-        // Verificar cargos do usuário no servidor
-        async function checkUserRoles(token) {
-            try {
-                const response = await fetch(`${BACKEND_URL}/api/user-info`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (!data.canAccess) {
-                        showError("Você precisa ser membro do servidor para acessar os drops.");
-                        logout();
-                        return;
-                    }
-                    
-                    userRoles = data.roles;
-                    user.isVip = data.isVip;
-                    user.isMember = data.isMember;
-                    
-                    localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-                    updateUIAfterLogin();
-                    loadDrops();
-                    
-                } else if (response.status === 403) {
-                    showError("Você precisa ser membro do servidor para acessar os drops.");
-                    logout();
-                } else {
-                    throw new Error('Falha ao verificar cargos');
-                }
-            } catch (error) {
-                console.error('Erro ao verificar cargos:', error);
-                showError("Erro ao verificar permissões. Tente novamente.");
-                logout();
-            }
-        }
-
-        // Atualizar UI após login
         function updateUIAfterLogin() {
             loginBtn.textContent = 'Sair';
             if (user.avatar) {
@@ -528,7 +328,6 @@
             document.body.style.overflow = 'auto';
         }
 
-        // Logout
         function logout() {
             localStorage.removeItem('discord_token');
             localStorage.removeItem('discord_user');
@@ -539,8 +338,6 @@
             userInfo.classList.add('hidden');
             clearDrops();
             showNoAccessMessage();
-            
-            // Desconectar WebSocket se estiver conectado
             if (socket) {
                 socket.disconnect();
                 connectionStatus.textContent = '❌ Desconectado';
@@ -548,188 +345,123 @@
             }
         }
 
-        // Mostrar erro
         function showError(message) {
-            if (errorMessage) {
-                errorMessage.textContent = message;
-            }
-            if (errorModal) {
-                errorModal.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-            }
+            errorMessage.textContent = message;
+            errorModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         }
 
-        // Carregar drops DO BACKEND (ATUALIZADO)
-async function loadDrops() {
-    try {
-        const token = localStorage.getItem('discord_token');
-        
-        if (!token) {
-            showNoAccessMessage();
-            return;
-        }
-
-        const response = await fetch(`${BACKEND_URL}/api/drops`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                drops = data.drops;
-            } else {
+        async function loadDrops() {
+            try {
+                const token = localStorage.getItem('discord_token');
+                if (!token) { showNoAccessMessage(); return; }
+                const response = await fetch(`${BACKEND_URL}/api/drops`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    drops = data.success ? data.drops : [];
+                }
+            } catch (error) {
                 drops = [];
             }
-        } else {
-            console.error('Erro ao carregar drops:', response.status);
-            drops = [];
+            renderDrops();
         }
-    } catch (error) {
-        console.error('Erro ao carregar drops:', error);
-        drops = [];
-    }
-    
-    renderDrops();
-}
 
-        // Renderizar drops
         function renderDrops(filter = 'all') {
             clearDrops();
-            
-            if (!user || userRoles.length === 0) {
-                showNoAccessMessage();
-                return;
-            }
-            
+            if (!user || userRoles.length === 0) { showNoAccessMessage(); return; }
             const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
             const isOwner = userRoles.includes(OWNER_ROLE_ID);
-            
             let filteredDrops = drops;
-            
-            if (filter === 'normal') {
-                filteredDrops = drops.filter(drop => !drop.isVip);
-            } else if (filter === 'vip') {
-                filteredDrops = drops.filter(drop => drop.isVip);
-                if (!canSeeVip) {
-                    filteredDrops = [];
-                    showNoDropsMessage(filter);
-                    return;
-                }
+            if (filter === 'normal') filteredDrops = drops.filter(d => !d.isVip);
+            else if (filter === 'vip') {
+                if (!canSeeVip) { showNoDropsMessage(filter); return; }
+                filteredDrops = drops.filter(d => d.isVip);
             }
-            
-            if (filteredDrops.length === 0) {
-                showNoDropsMessage(filter);
-                return;
-            }
-            
-            filteredDrops.forEach(drop => {
-                const dropElement = createRobloxAccountElement(drop, isOwner);
-                dropsGrid.appendChild(dropElement);
-            });
+            if (filteredDrops.length === 0) { showNoDropsMessage(filter); return; }
+            filteredDrops.forEach(drop => dropsGrid.appendChild(createRobloxAccountElement(drop, isOwner)));
         }
 
-        // Criar elemento de card para conta Roblox
+        // CORRIGIDO: Aceita dados simples
         function createRobloxAccountElement(account, isOwner) {
             const card = document.createElement('div');
             card.className = 'drop-card';
             card.dataset.id = account.id;
-            
-            const isVipOnly = account.isVip;
-            
+
+            const username = account.username || "Conta Roblox";
+            const robux = account.robux || "0";
+            const age = account.age || "";
+            const description = account.description || account.message || account.content || "Sem descrição disponível.";
+            const features = account.features && Array.isArray(account.features) && account.features.length > 0
+                ? account.features
+                : [ "Drop recebido via Discord" ];
+            const imageUrl = account.imageUrl || "https://via.placeholder.com/300x160/5865F2/FFFFFF?text=Roblox+Drop";
+            const isVipOnly = account.isVip || false;
+
             card.innerHTML = `
                 ${isVipOnly ? '<div class="vip-badge">VIP</div>' : '<div class="drop-badge">ROBLOX</div>'}
-                <img src="${account.imageUrl}" alt="${account.username}" class="drop-image">
+                <img src="${imageUrl}" alt="${username}" class="drop-image">
                 <div class="drop-content">
-                    <h3 class="drop-title">${account.username}</h3>
-                    <div class="drop-price">${account.robux} Robux • ${account.age}</div>
-                    
-                    <ul class="drop-features">
-                        ${account.features.map(feature => `<li>${feature}</li>`).join('')}
-                    </ul>
-                    
+                    <h3 class="drop-title">${username}</h3>
+                    <div class="drop-price">${robux} Robux ${age ? '• ' + age : ''}</div>
+                    <ul class="drop-features">${features.map(f => `<li>${f}</li>`).join('')}</ul>
                     <div class="account-credentials">
                         <div class="credential-item">
                             <span>Usuário: </span>
-                            <span class="credential-value">${account.username}</span>
-                            <button class="copy-btn" data-value="${account.username}">Copiar</button>
+                            <span class="credential-value">${username}</span>
+                            <button class="copy-btn" data-value="${username}">Copiar</button>
                         </div>
-                        
                         <div class="credential-item">
                             <span>Senha: </span>
-                            <span class="credential-value">••••••••</span>
-                            <button class="copy-btn" data-value="${account.password}">Copiar</button>
+                            <span class="credential-value">${account.password ? "••••••••" : "Não fornecida"}</span>
+                            ${account.password ? `<button class="copy-btn" data-value="${account.password}">Copiar</button>` : ""}
                         </div>
-                        
                         <div class="credential-item">
                             <span>Cookie: </span>
-                            <span class="credential-value">••••••••</span>
-                            <button class="copy-btn" data-value="${account.cookie}">Copiar</button>
+                            <span class="credential-value">${account.cookie ? "••••••••" : "Não fornecido"}</span>
+                            ${account.cookie ? `<button class="copy-btn" data-value="${account.cookie}">Copiar</button>` : ""}
                         </div>
                     </div>
-                    
-                    <p class="drop-description">${account.description}</p>
-                    
+                    <p class="drop-description">${description}</p>
                     <div class="drop-footer">
                         <button class="claim-btn">Resgatar Agora</button>
                         ${isOwner ? '<button class="delete-btn">🗑️</button>' : ''}
                     </div>
                 </div>
             `;
-            
+
             const claimBtn = card.querySelector('.claim-btn');
             claimBtn.addEventListener('click', () => {
-                alert(`Você está resgatando a conta: ${account.username}\n${account.robux} Robux`);
+                alert(`Você está resgatando a conta: ${username}\n${robux} Robux`);
             });
-            
             if (isOwner) {
                 const deleteBtn = card.querySelector('.delete-btn');
                 deleteBtn.addEventListener('click', () => {
-                    if (confirm(`Tem certeza que deseja deletar a conta "${account.username}"?`)) {
+                    if (confirm(`Tem certeza que deseja deletar "${username}"?`)) {
                         deleteDrop(account.id);
                     }
                 });
             }
-            
             return card;
         }
 
-        // Deletar drop (ATUALIZADO)
-async function deleteDrop(dropId) {
-    try {
-        const token = localStorage.getItem('discord_token');
-        const response = await fetch(`${BACKEND_URL}/api/drops/${dropId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                // Atualizar a lista local
-                drops = drops.filter(drop => drop.id !== dropId);
+        async function deleteDrop(dropId) {
+            try {
+                const token = localStorage.getItem('discord_token');
+                await fetch(`${BACKEND_URL}/api/drops/${dropId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                drops = drops.filter(d => d.id !== dropId);
                 renderDrops();
-            } else {
-                showError('Erro ao deletar drop');
+            } catch (e) {
+                showError('Erro ao deletar');
             }
-        } else {
-            showError('Erro ao deletar drop');
-        }
-    } catch (error) {
-        console.error('Erro ao deletar drop:', error);
-        showError('Erro ao deletar conta');
-    }
-}
-
-        // Limpar drops
-        function clearDrops() {
-            dropsGrid.innerHTML = '';
         }
 
-        // Mostrar mensagem quando não há acesso
+        function clearDrops() { dropsGrid.innerHTML = ''; }
+
         function showNoAccessMessage() {
             dropsGrid.innerHTML = `
                 <div class="no-drops">
@@ -738,29 +470,13 @@ async function deleteDrop(dropId) {
                     <button class="login-btn" style="margin-top: 15px;">Entrar com Discord</button>
                 </div>
             `;
-            
-            const loginBtn = dropsGrid.querySelector('.login-btn');
-            loginBtn.addEventListener('click', () => {
-                if (loginModal) {
-                    loginModal.style.display = 'flex';
-                    document.body.style.overflow = 'hidden';
-                }
-            });
         }
 
-        // Mostrar mensagem quando não há drops
         function showNoDropsMessage(filter = 'all') {
-            let message = '';
-            if (filter === 'vip') {
-                message = '<p>Você precisa ser VIP para visualizar as contas VIP.</p>';
-            } else {
-                message = '<p>Volte mais tarde para ver novidades!</p>';
-            }
-            
             dropsGrid.innerHTML = `
                 <div class="no-drops">
-                    <h3>Nenhuma conta disponível no momento</h3>
-                    ${message}
+                    <h3>Nenhuma conta disponível</h3>
+                    <p>${filter === 'vip' ? 'Você precisa ser VIP para ver contas VIP.' : 'Volte mais tarde!'}</p>
                 </div>
             `;
         }
