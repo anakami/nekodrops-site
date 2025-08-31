@@ -404,7 +404,7 @@
   <div id="login-modal" class="modal">
     <div class="modal-content">
       <h2 class="modal-title">Entrar com Discord</h2>
-      <p>Para acessar das contas, você precisa fazer login com sua conta do Discord e ser membro do nosso servidor.</p>
+      <p>Para acessar as contas, você precisa fazer login com sua conta do Discord e ser membro do nosso servidor.</p>
       <button id="modal-login-btn" class="modal-btn">Continuar com Discord</button>
     </div>
   </div>
@@ -465,6 +465,43 @@ function extractIPFromLink(text) {
   return text;
 }
 
+/* Funções de persistência - NOVAS */
+function saveDropsToLocalStorage() {
+  try {
+    localStorage.setItem('nekodrops_drops', JSON.stringify(drops));
+    localStorage.setItem('nekodrops_timestamp', Date.now().toString());
+  } catch (e) {
+    console.error('Erro ao salvar drops no localStorage:', e);
+  }
+}
+
+function loadDropsFromLocalStorage() {
+  try {
+    const savedDrops = localStorage.getItem('nekodrops_drops');
+    const savedTimestamp = localStorage.getItem('nekodrops_timestamp');
+    
+    // Carrega os dados salvos se não forem muito antigos (menos de 1 hora)
+    if (savedDrops && savedTimestamp) {
+      const age = Date.now() - parseInt(savedTimestamp);
+      if (age < 60 * 60 * 1000) { // 1 hora
+        return JSON.parse(savedDrops);
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao carregar drops do localStorage:', e);
+  }
+  return [];
+}
+
+function clearDropsFromLocalStorage() {
+  try {
+    localStorage.removeItem('nekodrops_drops');
+    localStorage.removeItem('nekodrops_timestamp');
+  } catch (e) {
+    console.error('Erro ao limpar drops do localStorage:', e);
+  }
+}
+
 /* Delegação: copiar valores */
 function setupCopyButtons() {
   document.addEventListener('click', e => {
@@ -490,6 +527,15 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCopyButtons();
   setupModalClosing();
   setupMobileMenu();
+  
+  // Primeiro carrega do localStorage para exibir rápido
+  const savedDrops = loadDropsFromLocalStorage();
+  if (savedDrops.length > 0) {
+    drops = savedDrops;
+    renderDrops(currentFilter);
+  }
+  
+  // Depois verifica autenticação e carrega do servidor
   checkAuth();
   processAuthResponse();
   setupWebSocket();
@@ -501,19 +547,49 @@ function setupWebSocket() {
   socket.on('connect', () => {
     connectionStatus.textContent = '✅ Conectado';
     connectionStatus.classList.add('connected');
+    
+    // Sincroniza com o servidor quando conectado
+    loadDropsFromServer();
   });
   socket.on('disconnect', () => {
     connectionStatus.textContent = '❌ Desconectado';
     connectionStatus.classList.remove('connected');
   });
   socket.on('new-drop', dropData => { 
+    // Adiciona o novo drop e salva no localStorage
     drops.unshift(dropData); 
+    saveDropsToLocalStorage();
     renderDrops(currentFilter); 
   });
   socket.on('drop-deleted', id => { 
+    // Remove o drop e atualiza o localStorage
     drops = drops.filter(d => d.id !== id); 
+    saveDropsToLocalStorage();
     renderDrops(currentFilter); 
   });
+}
+
+/* Carrega drops do servidor */
+async function loadDropsFromServer() {
+  try {
+    const token = localStorage.getItem('discord_token');
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
+    const res = await fetch(`${BACKEND_URL}/api/drops`, { headers });
+    const data = await res.json();
+    
+    if (data.success) {
+      drops = data.drops;
+      saveDropsToLocalStorage(); // Salva no localStorage
+    } else {
+      console.error('Erro ao carregar drops do servidor:', data.error);
+      // Mantém os dados do localStorage se a requisição falhar
+    }
+  } catch (e) {
+    console.error('Erro ao carregar drops do servidor:', e);
+    // Mantém os dados do localStorage se a requisição falhar
+  }
+  renderDrops(currentFilter);
 }
 
 /* Event listeners básicos (login modal, login button) */
@@ -578,7 +654,7 @@ function checkAuth() {
     if (rolesData) userRoles = JSON.parse(rolesData);
     if (userRoles.length > 0) { 
       updateUIAfterLogin(); 
-      loadDrops(); 
+      loadDropsFromServer(); // Carrega do servidor se autenticado
     } else {
       checkUserRoles(token);
     }
@@ -598,7 +674,7 @@ async function checkUserRoles(token) {
       userRoles = data.roles || [];
       localStorage.setItem('discord_roles', JSON.stringify(userRoles));
       updateUIAfterLogin();
-      loadDrops();
+      loadDropsFromServer(); // Carrega do servidor após verificar roles
     } else {
       showNoAccessMessage();
     }
@@ -659,7 +735,7 @@ async function getUserInfo(token) {
     localStorage.setItem('discord_user', JSON.stringify(user));
     localStorage.setItem('discord_roles', JSON.stringify(userRoles));
     updateUIAfterLogin(); 
-    loadDrops();
+    loadDropsFromServer(); // Carrega do servidor após login
   } catch (e) {
     console.error("Erro ao obter informações do usuário:", e);
     showError("Erro ao carregar informações do usuário.");
@@ -681,6 +757,7 @@ function updateUIAfterLogin() {
 
 function logout() {
   localStorage.clear();
+  clearDropsFromLocalStorage(); // Limpa os drops do localStorage também
   user = null; 
   userRoles = [];
   loginBtn.textContent = 'Entrar com Discord';
@@ -698,24 +775,6 @@ function showError(msg) {
   errorMessage.textContent = msg; 
   errorModal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
-}
-
-/* Load drops from backend */
-async function loadDrops() {
-  try {
-    const token = localStorage.getItem('discord_token');
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    
-    const res = await fetch(`${BACKEND_URL}/api/drops`, { headers });
-    const data = await res.json();
-    
-    drops = data.success ? data.drops : [];
-    renderDrops(currentFilter);
-  } catch (e) {
-    console.error('Erro ao carregar drops', e);
-    drops = [];
-    renderDrops(currentFilter);
-  }
 }
 
 /* UI: render */
@@ -776,7 +835,7 @@ function createRobloxAccountElement(account, isOwner) {
   if (authVal) type = 'auth';
   else if (cookieVal && ipVal) type = 'primary';
   else if (ipVal) type = 'ip';
-  else if (usernameVal && passwordVal) type = 'credentials'; // NOVO TIPO: apenas username e password
+  else if (usernameVal && passwordVal) type = 'credentials';
 
   // Cabeçalho / imagem
   const imageUrl = account.imageUrl || account.image || account.thumbnail || '';
@@ -918,6 +977,7 @@ async function deleteDrop(id) {
     if (!res.ok) throw new Error('Erro ao deletar');
     
     drops = drops.filter(d => d.id !== id);
+    saveDropsToLocalStorage(); // Atualiza localStorage após deletar
     renderDrops(currentFilter);
   } catch (e) {
     console.error(e);
