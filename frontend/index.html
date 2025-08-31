@@ -559,22 +559,40 @@
             }
         }
 
-        // Carregar drops
-        async function loadDrops() {
-            try {
-                const response = await fetch(`${BACKEND_URL}/api/drops`);
-                if (response.ok) {
-                    const data = await response.json();
-                    drops = data.drops || sampleRobloxAccounts;
-                } else {
-                    drops = sampleRobloxAccounts;
-                }
-            } catch (error) {
-                console.error('Erro ao carregar drops:', error);
-                drops = sampleRobloxAccounts;
-            }
-            renderDrops();
+        // Carregar drops DO BACKEND (ATUALIZADO)
+async function loadDrops() {
+    try {
+        const token = localStorage.getItem('discord_token');
+        
+        if (!token) {
+            showNoAccessMessage();
+            return;
         }
+
+        const response = await fetch(`${BACKEND_URL}/api/drops`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                drops = data.drops;
+            } else {
+                drops = [];
+            }
+        } else {
+            console.error('Erro ao carregar drops:', response.status);
+            drops = [];
+        }
+    } catch (error) {
+        console.error('Erro ao carregar drops:', error);
+        drops = [];
+    }
+    
+    renderDrops();
+}
 
         // Renderizar drops
         function renderDrops(filter = 'all') {
@@ -677,27 +695,34 @@
             return card;
         }
 
-        // Deletar drop
-        async function deleteDrop(dropId) {
-            try {
-                const response = await fetch(`${BACKEND_URL}/api/drops/${dropId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('discord_token')}`
-                    }
-                });
-                
-                if (response.ok) {
-                    drops = drops.filter(drop => drop.id !== dropId);
-                    renderDrops();
-                } else {
-                    throw new Error('Falha ao deletar drop');
-                }
-            } catch (error) {
-                console.error('Erro ao deletar drop:', error);
-                showError('Erro ao deletar conta. Tente novamente.');
+        // Deletar drop (ATUALIZADO)
+async function deleteDrop(dropId) {
+    try {
+        const token = localStorage.getItem('discord_token');
+        const response = await fetch(`${BACKEND_URL}/api/drops/${dropId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                // Atualizar a lista local
+                drops = drops.filter(drop => drop.id !== dropId);
+                renderDrops();
+            } else {
+                showError('Erro ao deletar drop');
+            }
+        } else {
+            showError('Erro ao deletar drop');
         }
+    } catch (error) {
+        console.error('Erro ao deletar drop:', error);
+        showError('Erro ao deletar conta');
+    }
+}
 
         // Limpar drops
         function clearDrops() {
