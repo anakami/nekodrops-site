@@ -733,15 +733,22 @@
   });
 
   /* WebSocket */
-  function setupWebSocket() {
+function setupWebSocket() {
   socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
   
   socket.on('connect', () => {
     connectionStatus.textContent = '✨ Conectado';
     connectionStatus.classList.add('connected');
-    
-    // 🔥 ADICIONAR AQUI: Autenticar o WebSocket após conectar
-    if (user && userRoles.length > 0) {
+    console.log('✅ WebSocket conectado');
+
+    // 🔥 Autenticar usando token do localStorage
+    const token = localStorage.getItem('discord_token');
+    if (token) {
+      socket.emit('authenticate', { token });
+      console.log('🔐 WebSocket autenticado com token do usuário');
+    } 
+    // Alternativa: se você também tiver user e roles
+    else if (user && userRoles.length > 0) {
       socket.emit('authenticate', {
         userId: user.id,
         roles: userRoles
@@ -759,14 +766,12 @@
   });
   
   socket.on('new-drop', dropData => { 
-    // Adiciona o novo drop e salva no localStorage
     drops.unshift(dropData); 
     saveDropsToLocalStorage();
     renderDrops(currentFilter); 
   });
   
   socket.on('drop-deleted', id => { 
-    // Remove o drop e atualiza o localStorage
     drops = drops.filter(d => d.id !== id); 
     saveDropsToLocalStorage();
     renderDrops(currentFilter); 
@@ -902,23 +907,77 @@
     }
   }
 
-  function processAuthResponse() {
+function processAuthResponse() {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
-    const error = urlParams.get('error');
-    
-    if (error) { 
-      showError("Erro ao fazer login."); 
-      return; 
-    }
-    
-    if (token) {
-      localStorage.setItem('discord_token', token);
-      getUserInfo(token);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }
 
+    if (token) {
+        // Salvar token no localStorage
+        localStorage.setItem('discord_token', token);
+
+        // Remover token da URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Atualizar interface
+        updateUserUI();
+
+        // Fechar modal se estiver aberto
+        const modal = document.getElementById('login-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+}
+
+async function updateUserUI() {
+    const token = localStorage.getItem('discord_token');
+    const statusText = document.getElementById('status-text');
+    const loginBtn = document.getElementById('login-btn');
+    const userInfoDiv = document.getElementById('user-info');
+
+    if (!token) {
+        statusText.textContent = 'Status: Desconectado';
+        loginBtn.style.display = 'inline-block';
+        userInfoDiv.innerHTML = '';
+        return;
+    }
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/user-info`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+            throw new Error('Token inválido');
+        }
+
+        const data = await res.json();
+        if (data.success) {
+            statusText.textContent = 'Status: Conectado';
+            loginBtn.style.display = 'none';
+            userInfoDiv.innerHTML = `
+                <img src="https://cdn.discordapp.com/avatars/${data.userId}/${data.avatar}.png" width="32" height="32" style="border-radius:50%;margin-right:5px;">
+                <span>${data.username}</span>
+                <button onclick="logout()" style="margin-left:10px;background:#ff5e5e;color:white;padding:5px 10px;border:none;border-radius:5px;cursor:pointer;">Sair</button>
+            `;
+
+            // Autenticar no WebSocket
+            socket.emit('authenticate', {
+                userId: data.userId,
+                roles: data.roles
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar UI:', error);
+        logout();
+    }
+}
+
+function logout() {
+    localStorage.removeItem('discord_token');
+    updateUserUI();
+}
+    
   async function getUserInfo(token) {
     try {
       const res = await fetch(`${BACKEND_URL}/api/user-info`, {
@@ -1250,6 +1309,20 @@
       });
     });
   }
+
+    document.addEventListener('DOMContentLoaded', () => {
+    // Configura os filtros
+    setupFilters();
+
+    // Processa o token do login (se houver)
+    processAuthResponse();
+
+    // Atualiza a interface do usuário
+    updateUserUI();
+
+    // Carrega os drops iniciais
+    loadDrops();
+});
   </script>
 </body>
 </html>
