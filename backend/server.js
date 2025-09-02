@@ -3,7 +3,6 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const { Server } = require('socket.io');
 const http = require('http');
-const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -32,16 +31,16 @@ const SERVER_ID = process.env.SERVER_ID;
 const MEMBER_ROLE_ID = process.env.MEMBER_ROLE_ID;
 const VIP_ROLE_ID = process.env.VIP_ROLE_ID;
 const OWNER_ROLE_ID = process.env.OWNER_ROLE_ID;
+const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 
-// "Banco de dados" em memória (substitua por MongoDB depois)
+// "Banco de dados" em memória
 let dropsDatabase = [];
-let connectedClients = new Map(); // Mapa para armazenar informações dos clientes
+let connectedClients = new Map();
 
 // WebSocket para atualização em tempo real
 io.on('connection', (socket) => {
   console.log('🔗 Cliente conectado via WebSocket:', socket.id);
   
-  // Evento para autenticar o cliente com suas permissões
   socket.on('authenticate', (userData) => {
     connectedClients.set(socket.id, {
       userId: userData.userId,
@@ -72,6 +71,52 @@ function emitNewDropToAllowedUsers(dropData) {
   console.log('📢 Novo drop emitido para clientes autorizados');
 }
 
+// Função auxiliar para obter informações do usuário
+async function getUserInfoFromToken(token) {
+  try {
+    // 1. Obter informações básicas do usuário
+    const userResponse = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!userResponse.ok) {
+      throw new Error('Token inválido');
+    }
+
+    const user = await userResponse.json();
+
+    // 2. Obter informações do membro no servidor (URL CORRETA)
+    const memberResponse = await fetch(
+      `https://discord.com/api/guilds/${SERVER_ID}/members/${user.id}`,
+      { 
+        headers: { 
+          Authorization: `Bot ${DISCORD_BOT_TOKEN}`
+        } 
+      }
+    );
+
+    if (!memberResponse.ok) {
+      console.log('❌ Erro ao buscar membro:', memberResponse.status);
+      throw new Error('Usuário não está no servidor');
+    }
+
+    const member = await memberResponse.json();
+    
+    return {
+      userId: user.id,
+      username: user.username,
+      avatar: user.avatar,
+      roles: member.roles || [],
+      isVip: member.roles.includes(VIP_ROLE_ID) || member.roles.includes(OWNER_ROLE_ID),
+      isOwner: member.roles.includes(OWNER_ROLE_ID)
+    };
+    
+  } catch (error) {
+    console.error('❌ Erro em getUserInfoFromToken:', error.message);
+    throw new Error('Falha ao obter informações do usuário');
+  }
+}
+
 // Rota para receber drops do bot
 app.post('/api/drops', async (req, res) => {
   try {
@@ -84,7 +129,7 @@ app.post('/api/drops', async (req, res) => {
       isActive: true
     };
     
-    // Salvar no "banco de dados"
+    // Salvar no banco de dados
     dropsDatabase.push(dropData);
     
     // Manter apenas os 1000 drops mais recentes
@@ -92,7 +137,7 @@ app.post('/api/drops', async (req, res) => {
       dropsDatabase = dropsDatabase.slice(-1000);
     }
     
-    // Emitir apenas para usuários autorizados via WebSocket
+    // Emitir para usuários autorizados
     emitNewDropToAllowedUsers(dropData);
     
     res.json({ 
@@ -108,7 +153,7 @@ app.post('/api/drops', async (req, res) => {
   }
 });
 
-// Rota para listar todos os drops (com filtro por permissões)
+// Rota para listar drops
 app.get('/api/drops', async (req, res) => {
   try {
     const { type, limit = 50, offset = 0 } = req.query;
@@ -116,7 +161,6 @@ app.get('/api/drops', async (req, res) => {
     
     let filteredDrops = dropsDatabase.filter(drop => drop.isActive !== false);
     
-    // Se não tem token, retorna vazio
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.json({ success: true, drops: [] });
     }
@@ -124,32 +168,27 @@ app.get('/api/drops', async (req, res) => {
     const token = authHeader.substring(7);
     
     try {
-      // Verificar permissões do usuário
       const userInfo = await getUserInfoFromToken(token);
       const canSeeVip = userInfo.roles.includes(VIP_ROLE_ID) || userInfo.roles.includes(OWNER_ROLE_ID);
       
-      // Filtrar drops conforme permissões
       filteredDrops = filteredDrops.filter(drop => {
         if (drop.isVip && !canSeeVip) return false;
         return true;
       });
       
     } catch (error) {
-      console.log('⚠️ Token inválido ou expirado, retornando drops públicos');
+      console.log('⚠️ Token inválido, retornando drops públicos');
       filteredDrops = filteredDrops.filter(drop => !drop.isVip);
     }
     
-    // Filtrar por tipo se especificado
     if (type === 'vip') {
       filteredDrops = filteredDrops.filter(drop => drop.isVip);
     } else if (type === 'normal') {
       filteredDrops = filteredDrops.filter(drop => !drop.isVip);
     }
     
-    // Ordenar por data (mais recente primeiro)
     filteredDrops.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
     
-    // Paginação
     const paginatedDrops = filteredDrops.slice(offset, offset + parseInt(limit));
     
     res.json({
@@ -165,42 +204,7 @@ app.get('/api/drops', async (req, res) => {
   }
 });
 
-// Função auxiliar para obter informações do usuário a partir do token
-async function getUserInfoFromToken(token) {
-  try {
-    const userResponse = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!userResponse.ok) {
-      throw new Error('Token inválido');
-    }
-
-    const user = await userResponse.json();
-
-    const memberResponse = await fetch(`https://discord.com/api/users/@me/guilds/${SERVER_ID}/member`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!memberResponse.ok) {
-      throw new Error('Usuário não está no servidor');
-    }
-
-    const member = await memberResponse.json();
-    
-    return {
-      userId: user.id,
-      roles: member.roles || [],
-      isVip: member.roles.includes(VIP_ROLE_ID) || member.roles.includes(OWNER_ROLE_ID),
-      isOwner: member.roles.includes(OWNER_ROLE_ID)
-    };
-    
-  } catch (error) {
-    throw new Error('Falha ao obter informações do usuário: ' + error.message);
-  }
-}
-
-// Rota para deletar um drop (apenas owner)
+// Rota para deletar um drop
 app.delete('/api/drops/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -212,7 +216,6 @@ app.delete('/api/drops/:id', async (req, res) => {
     
     const token = authHeader.substring(7);
     
-    // Verificar se é owner
     try {
       const userInfo = await getUserInfoFromToken(token);
       if (!userInfo.isOwner) {
@@ -228,11 +231,9 @@ app.delete('/api/drops/:id', async (req, res) => {
       return res.status(404).json({ error: 'Drop não encontrado' });
     }
     
-    // Marcar como inativo ao invés de deletar permanentemente
     dropsDatabase[dropIndex].isActive = false;
     dropsDatabase[dropIndex].deletedAt = new Date().toISOString();
     
-    // Emitir atualização para todos os clientes
     io.emit('drop-deleted', id);
     
     res.json({ 
@@ -247,13 +248,12 @@ app.delete('/api/drops/:id', async (req, res) => {
   }
 });
 
-// Rota para estatísticas (com filtro por permissões)
+// Rota para estatísticas
 app.get('/api/stats', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     let activeDrops = dropsDatabase.filter(drop => drop.isActive !== false);
     
-    // Filtrar por permissões se token fornecido
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       try {
@@ -264,11 +264,9 @@ app.get('/api/stats', async (req, res) => {
           activeDrops = activeDrops.filter(drop => !drop.isVip);
         }
       } catch (error) {
-        // Se token inválido, mostra apenas drops normais
         activeDrops = activeDrops.filter(drop => !drop.isVip);
       }
     } else {
-      // Sem token, mostra apenas drops normais
       activeDrops = activeDrops.filter(drop => !drop.isVip);
     }
     
@@ -300,7 +298,13 @@ app.get('/auth/discord', (req, res) => {
 // Rota de callback do Discord
 app.get('/auth/callback', async (req, res) => {
     console.log('✅ Callback recebido! Query parameters:', req.query);
-    const code = req.query.code;
+    
+    const { code, error, error_description } = req.query;
+    
+    if (error) {
+        console.log('❌ Erro do Discord:', error, error_description);
+        return res.redirect(`${FRONTEND_URL}/?error=${error}`);
+    }
     
     if (!code) {
         console.log('❌ Erro: Code não recebido');
@@ -310,26 +314,37 @@ app.get('/auth/callback', async (req, res) => {
     console.log('✅ Code recebido:', code);
 
     try {
-        const data = {
-            client_id: CLIENT_ID,
-            client_secret: CLIENT_SECRET,
-            grant_type: 'authorization_code',
-            code: code,
-            redirect_uri: REDIRECT_URI,
-            scope: 'identify guilds guilds.members.read'
-        };
+        const data = new URLSearchParams();
+        data.append('client_id', CLIENT_ID);
+        data.append('client_secret', CLIENT_SECRET);
+        data.append('grant_type', 'authorization_code');
+        data.append('code', code);
+        data.append('redirect_uri', REDIRECT_URI);
+        data.append('scope', 'identify guilds guilds.members.read');
 
+        console.log('📤 Enviando requisição para Discord...');
+        
         const response = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
-            body: new URLSearchParams(data),
+            body: data,
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
         });
 
-        const json = await response.json();
+        const responseText = await response.text();
+        console.log('📥 Resposta do Discord:', response.status, responseText);
         
+        let json;
+        try {
+            json = JSON.parse(responseText);
+        } catch (e) {
+            console.error('❌ Erro ao parsear resposta JSON:', e);
+            return res.redirect(`${FRONTEND_URL}/?error=invalid_response`);
+        }
+
         if (response.ok) {
+            console.log('✅ Token obtido com sucesso!');
             res.redirect(`${FRONTEND_URL}/?token=${json.access_token}`);
         } else {
             console.log('❌ Erro ao obter token:', json);
@@ -341,7 +356,7 @@ app.get('/auth/callback', async (req, res) => {
     }
 });
 
-// Rota para obter informações do usuário e cargos
+// Rota para obter informações do usuário
 app.get('/api/user-info', async (req, res) => {
     const authHeader = req.headers.authorization;
     
@@ -355,6 +370,7 @@ app.get('/api/user-info', async (req, res) => {
         const userInfo = await getUserInfoFromToken(token);
         
         res.json({
+            success: true,
             userId: userInfo.userId,
             username: userInfo.username,
             avatar: userInfo.avatar,
@@ -404,7 +420,8 @@ app.get('/health', (req, res) => {
         environment: {
             hasClientId: !!CLIENT_ID,
             hasClientSecret: !!CLIENT_SECRET,
-            hasServerId: !!SERVER_ID
+            hasServerId: !!SERVER_ID,
+            hasBotToken: !!DISCORD_BOT_TOKEN
         }
     });
 });
@@ -444,5 +461,4 @@ server.listen(PORT, () => {
     console.log(`🔗 Redirect URI: ${REDIRECT_URI}`);
     console.log(`✅ Health check disponível em: http://localhost:${PORT}/health`);
     console.log(`📊 WebSocket pronto para conexões`);
-    console.log(`🔒 Sistema de segurança VIP ativado`);
 });
