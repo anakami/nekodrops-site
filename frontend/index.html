@@ -611,7 +611,6 @@
   // Código JavaScript permanece o mesmo, apenas atualizando os textos dos botões
   /* Variáveis de configuração */
   const CLIENT_ID = "1410654667490197641";
-  const REDIRECT_URI = window.location.origin;
   const SERVER_ID = "1399661543284805763";
   const MEMBER_ROLE_ID = "1399662113114296360";
   const VIP_ROLE_ID = "1399662852448587859";
@@ -887,20 +886,20 @@ function setupWebSocket() {
     }
   }
   
-  /* Auth flow (mantive suas funções originais) */
-  function loginWithDiscord() {
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-      // iOS - usa redirecionamento direto
-      window.location.href = `${BACKEND_URL}/auth/discord?redirect_uri=${encodeURIComponent(window.location.origin)}`;
-    } else {
-      // Outros dispositivos - usa popup
-      const authWindow = window.open(
-        `${BACKEND_URL}/auth/discord?redirect_uri=${encodeURIComponent(window.location.origin)}`,
-        'DiscordLogin',
-        'width=600,height=700'
-      );
-    }
+/* Auth flow (simplificado e corrigido) */
+function loginWithDiscord() {
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    // iOS - usa redirecionamento direto
+    window.location.href = `${BACKEND_URL}/auth/discord`;
+  } else {
+    // Outros dispositivos - usa popup
+    const authWindow = window.open(
+      `${BACKEND_URL}/auth/discord`,
+      'DiscordLogin',
+      'width=600,height=700'
+    );
   }
+}
 
 function processAuthResponse() {
     const urlParams = new URLSearchParams(window.location.search);
