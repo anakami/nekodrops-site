@@ -912,20 +912,14 @@ function processAuthResponse() {
     const token = urlParams.get('token');
 
     if (token) {
-        // Salvar token no localStorage
+        // Salvar token
         localStorage.setItem('discord_token', token);
 
-        // Remover token da URL
+        // Limpar token da URL
         window.history.replaceState({}, document.title, window.location.pathname);
 
-        // Atualizar interface
-        updateUserUI();
-
-        // Fechar modal se estiver aberto
-        const modal = document.getElementById('login-modal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
+        // Buscar dados do usuário imediatamente
+        getUserInfo(token);
     }
 }
 
@@ -944,14 +938,24 @@ async function updateUserUI() {
     const data = await res.json();
 
     if (data.success) {
+      // Salvar no estado e localStorage
+      user = { id: data.userId, username: data.username, avatar: data.avatar };
+      userRoles = data.roles || [];
+      localStorage.setItem('discord_user', JSON.stringify(user));
+      localStorage.setItem('discord_roles', JSON.stringify(userRoles));
+
+      // Atualizar UI
       loginBtn.textContent = '🚪 Sair';
-      username.textContent = data.username;
-      userAvatar.src = `https://cdn.discordapp.com/avatars/${data.userId}/${data.avatar}.png?size=128`;
+      username.textContent = user.username;
+      userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
       userInfo.classList.remove('hidden');
 
+      // Autenticar socket
       if (socket && socket.connected) {
         socket.emit('authenticate', { token });
       }
+    } else {
+      logout();
     }
   } catch (e) {
     console.error("Erro ao buscar usuário:", e);
