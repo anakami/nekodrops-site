@@ -43,26 +43,34 @@ io.on('connection', (socket) => {
   
   socket.on('authenticate', async (userData) => {
     try {
+      console.log('🔐 Tentativa de autenticação WebSocket:', userData);
+      
       let userInfo;
+      
       if (userData.token) {
+        // Se tem token, usa para buscar informações
         userInfo = await getUserInfoFromToken(userData.token);
-      } else {
+      } else if (userData.userId && userData.roles) {
+        // Se já tem informações do usuário, usa diretamente
         userInfo = userData;
+      } else {
+        throw new Error('Dados de autenticação inválidos');
       }
 
       connectedClients.set(socket.id, {
         userId: userInfo.userId,
+        username: userInfo.username,
         roles: userInfo.roles || [],
         isVip: userInfo.roles?.includes(VIP_ROLE_ID) || userInfo.roles?.includes(OWNER_ROLE_ID),
         isOwner: userInfo.roles?.includes(OWNER_ROLE_ID)
       });
 
-      console.log(`✅ Cliente ${socket.id} autenticado como ${userInfo.userId}`);
+      console.log(`✅ Cliente ${socket.id} autenticado como ${userInfo.username}`);
+      socket.emit('authenticated', { success: true });
       
-      // 🔥 AVISA O CLIENTE QUE AUTENTICOU
-      socket.emit('authenticated');
-    } catch (e) {
-      console.error("❌ Falha ao autenticar WS:", e.message);
+    } catch (error) {
+      console.error('❌ Falha na autenticação WebSocket:', error.message);
+      socket.emit('auth_error', { error: error.message });
     }
   });
   
@@ -89,18 +97,22 @@ function emitNewDropToAllowedUsers(dropData) {
 // Função auxiliar para obter informações do usuário
 async function getUserInfoFromToken(token) {
   try {
+    console.log('🔍 Verificando token com Discord API...');
+    
     // 1. Obter informações básicas do usuário
     const userResponse = await fetch('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!userResponse.ok) {
+      console.log('❌ Token inválido - Status:', userResponse.status);
       throw new Error('Token inválido');
     }
 
     const user = await userResponse.json();
+    console.log('✅ Usuário encontrado:', user.username);
 
-    // 2. Obter informações do membro no servidor (URL CORRETA)
+    // 2. Obter informações do membro no servidor
     const memberResponse = await fetch(
       `https://discord.com/api/guilds/${SERVER_ID}/members/${user.id}`,
       { 
@@ -116,6 +128,8 @@ async function getUserInfoFromToken(token) {
     }
 
     const member = await memberResponse.json();
+    
+    console.log('✅ Cargos do usuário:', member.roles);
     
     return {
       userId: user.id,
@@ -176,34 +190,39 @@ app.get('/api/drops', async (req, res) => {
     
     let filteredDrops = dropsDatabase.filter(drop => drop.isActive !== false);
     
+    // Se não tem token, retorna apenas drops públicos
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.json({ success: true, drops: [] });
-    }
-    
-    const token = authHeader.substring(7);
-    
-    try {
-      const userInfo = await getUserInfoFromToken(token);
-      const canSeeVip = userInfo.roles.includes(VIP_ROLE_ID) || userInfo.roles.includes(OWNER_ROLE_ID);
-      
-      filteredDrops = filteredDrops.filter(drop => {
-        if (drop.isVip && !canSeeVip) return false;
-        return true;
-      });
-      
-    } catch (error) {
-      console.log('⚠️ Token inválido, retornando drops públicos');
       filteredDrops = filteredDrops.filter(drop => !drop.isVip);
+    } else {
+      const token = authHeader.substring(7);
+      
+      try {
+        const userInfo = await getUserInfoFromToken(token);
+        const canSeeVip = userInfo.roles.includes(VIP_ROLE_ID) || userInfo.roles.includes(OWNER_ROLE_ID);
+        
+        // Filtrar drops conforme permissões
+        filteredDrops = filteredDrops.filter(drop => {
+          if (drop.isVip && !canSeeVip) return false;
+          return true;
+        });
+        
+      } catch (error) {
+        console.log('⚠️ Token inválido, retornando drops públicos');
+        filteredDrops = filteredDrops.filter(drop => !drop.isVip);
+      }
     }
     
+    // Filtrar por tipo se especificado
     if (type === 'vip') {
       filteredDrops = filteredDrops.filter(drop => drop.isVip);
     } else if (type === 'normal') {
       filteredDrops = filteredDrops.filter(drop => !drop.isVip);
     }
     
+    // Ordenar por data (mais recente primeiro)
     filteredDrops.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
     
+    // Paginação
     const paginatedDrops = filteredDrops.slice(offset, offset + parseInt(limit));
     
     res.json({
