@@ -735,42 +735,37 @@
   /* WebSocket */
 function setupWebSocket() {
   socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
-  
-  socket.on('connect', () => {
-    connectionStatus.textContent = '✨ Conectado';
-    connectionStatus.classList.add('connected');
-    console.log('✅ WebSocket conectado');
 
-    // 🔥 Autenticar usando token do localStorage
+  socket.on('connect', () => {
+    console.log('✅ WebSocket conectado');
     const token = localStorage.getItem('discord_token');
     if (token) {
       socket.emit('authenticate', { token });
-      console.log('🔐 WebSocket autenticado com token do usuário');
-    } 
-    // Alternativa: se você também tiver user e roles
-    else if (user && userRoles.length > 0) {
-      socket.emit('authenticate', {
-        userId: user.id,
-        roles: userRoles
-      });
-      console.log('🔐 WebSocket autenticado com as permissões do usuário');
     }
-    
-    // Sincroniza com o servidor quando conectado
-    loadDropsFromServer();
   });
-  
+
+  socket.on('authenticated', () => {
+    connectionStatus.textContent = '✨ Conectado';
+    connectionStatus.classList.add('connected');
+  });
+
+  socket.on('auth_error', (err) => {
+    console.warn('❌ Erro de autenticação WS:', err?.message || 'desconhecido');
+    connectionStatus.textContent = '⚠️ Não autenticado';
+    connectionStatus.classList.remove('connected');
+  });
+
   socket.on('disconnect', () => {
     connectionStatus.textContent = '❌ Desconectado';
     connectionStatus.classList.remove('connected');
   });
-  
+
   socket.on('new-drop', dropData => { 
     drops.unshift(dropData); 
     saveDropsToLocalStorage();
     renderDrops(currentFilter); 
   });
-  
+
   socket.on('drop-deleted', id => { 
     drops = drops.filter(d => d.id !== id); 
     saveDropsToLocalStorage();
