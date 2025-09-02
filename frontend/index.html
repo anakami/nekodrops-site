@@ -852,39 +852,40 @@ function setupWebSocket() {
     const rolesData = localStorage.getItem('discord_roles');
 
     if (token && userData) {
-      user = JSON.parse(userData);
-      if (rolesData) userRoles = JSON.parse(rolesData);
-      if (userRoles.length > 0) { 
-        updateUIAfterLogin(); 
-        loadDropsFromServer(); // Carrega do servidor se autenticado
-      } else {
-        checkUserRoles(token);
-      }
+        user = JSON.parse(userData);
+        if (rolesData) userRoles = JSON.parse(rolesData);
+        
+        if (userRoles.length > 0) { 
+            updateUIAfterLogin(); 
+            loadDropsFromServer();
+        } else {
+            // Verificar cargos se não tiver
+            checkUserRoles(token);
+        }
     } else {
-      showNoAccessMessage();
-    }
-  }
-
-  // Esta função estava faltando no código original
-  async function checkUserRoles(token) {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/user-roles`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        userRoles = data.roles || [];
-        localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-        updateUIAfterLogin();
-        loadDropsFromServer(); // Carrega do servidor após verificar roles
-      } else {
         showNoAccessMessage();
-      }
-    } catch (e) {
-      console.error("Erro ao verificar roles:", e);
-      showNoAccessMessage();
     }
-  }
+}
+// Função para verificar cargos
+async function checkUserRoles(token) {
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/user-roles`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            userRoles = data.roles || [];
+            localStorage.setItem('discord_roles', JSON.stringify(userRoles));
+            updateUIAfterLogin();
+            loadDropsFromServer();
+        }
+    } catch (error) {
+        console.error("Erro ao verificar roles:", error);
+    }
+}
   
 /* Auth flow (simplificado e corrigido) */
 function loginWithDiscord() {
@@ -904,16 +905,55 @@ function loginWithDiscord() {
 function processAuthResponse() {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
+    const error = urlParams.get('error');
+
+    if (error) {
+        showError("Erro no login: " + error);
+        return;
+    }
 
     if (token) {
         // Salvar token
         localStorage.setItem('discord_token', token);
-
-        // Limpar token da URL
+        
+        // Limpar URL
         window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Buscar informações do usuário
+        fetchUserInfo(token);
+    }
+}
 
-        // Buscar dados do usuário imediatamente
-        getUserInfo(token);
+// Função nova para buscar informações do usuário
+async function fetchUserInfo(token) {
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/user-info`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            const userData = await response.json();
+            
+            // Salvar dados do usuário
+            user = userData;
+            userRoles = userData.roles || [];
+            
+            localStorage.setItem('discord_user', JSON.stringify(user));
+            localStorage.setItem('discord_roles', JSON.stringify(userRoles));
+            
+            // Atualizar UI
+            updateUIAfterLogin();
+            loadDropsFromServer();
+            
+        } else {
+            throw new Error('Falha ao obter informações do usuário');
+        }
+    } catch (error) {
+        console.error('Erro ao buscar informações:', error);
+        showError("Erro ao carregar informações do usuário");
+        logout();
     }
 }
 
