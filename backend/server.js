@@ -41,15 +41,25 @@ let connectedClients = new Map();
 io.on('connection', (socket) => {
   console.log('🔗 Cliente conectado via WebSocket:', socket.id);
   
-  socket.on('authenticate', (userData) => {
+  socket.on('authenticate', async (userData) => {
+  try {
+    let userInfo;
+    if (userData.token) {
+      userInfo = await getUserInfoFromToken(userData.token);
+    } else {
+      userInfo = userData;
+    }
     connectedClients.set(socket.id, {
-      userId: userData.userId,
-      roles: userData.roles || [],
-      isVip: userData.roles?.includes(VIP_ROLE_ID) || userData.roles?.includes(OWNER_ROLE_ID),
-      isOwner: userData.roles?.includes(OWNER_ROLE_ID)
+      userId: userInfo.userId,
+      roles: userInfo.roles || [],
+      isVip: userInfo.roles?.includes(VIP_ROLE_ID) || userInfo.roles?.includes(OWNER_ROLE_ID),
+      isOwner: userInfo.roles?.includes(OWNER_ROLE_ID)
     });
-    console.log(`✅ Cliente ${socket.id} autenticado como ${userData.userId}`);
-  });
+    console.log(`✅ Cliente ${socket.id} autenticado como ${userInfo.userId}`);
+  } catch (e) {
+    console.error("❌ Falha ao autenticar WS:", e.message);
+  }
+});
   
   socket.on('disconnect', () => {
     console.log('🔌 Cliente desconectado:', socket.id);
