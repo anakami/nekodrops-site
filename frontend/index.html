@@ -930,52 +930,33 @@ function processAuthResponse() {
 }
 
 async function updateUserUI() {
-    const token = localStorage.getItem('discord_token');
-    const statusText = document.getElementById('status-text');
-    const loginBtn = document.getElementById('login-btn');
-    const userInfoDiv = document.getElementById('user-info');
+  const token = localStorage.getItem('discord_token');
+  if (!token) {
+    loginBtn.textContent = '🎮 Entrar com Discord';
+    userInfo.classList.add('hidden');
+    return;
+  }
 
-    if (!token) {
-        statusText.textContent = 'Status: Desconectado';
-        loginBtn.style.display = 'inline-block';
-        userInfoDiv.innerHTML = '';
-        return;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/user-info`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      loginBtn.textContent = '🚪 Sair';
+      username.textContent = data.username;
+      userAvatar.src = `https://cdn.discordapp.com/avatars/${data.userId}/${data.avatar}.png?size=128`;
+      userInfo.classList.remove('hidden');
+
+      if (socket && socket.connected) {
+        socket.emit('authenticate', { token });
+      }
     }
-
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/user-info`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (!res.ok) {
-            throw new Error('Token inválido');
-        }
-
-        const data = await res.json();
-        if (data.success) {
-            statusText.textContent = 'Status: Conectado';
-            loginBtn.style.display = 'none';
-            userInfoDiv.innerHTML = `
-                <img src="https://cdn.discordapp.com/avatars/${data.userId}/${data.avatar}.png" width="32" height="32" style="border-radius:50%;margin-right:5px;">
-                <span>${data.username}</span>
-                <button onclick="logout()" style="margin-left:10px;background:#ff5e5e;color:white;padding:5px 10px;border:none;border-radius:5px;cursor:pointer;">Sair</button>
-            `;
-
-            // Autenticar no WebSocket
-            socket.emit('authenticate', {
-                userId: data.userId,
-                roles: data.roles
-            });
-        }
-    } catch (error) {
-        console.error('Erro ao atualizar UI:', error);
-        logout();
-    }
-}
-
-function logout() {
-    localStorage.removeItem('discord_token');
-    updateUserUI();
+  } catch (e) {
+    console.error("Erro ao buscar usuário:", e);
+    logout();
+  }
 }
     
   async function getUserInfo(token) {
@@ -1043,6 +1024,8 @@ function logout() {
     userRoles = [];
     loginBtn.textContent = '🎮 Entrar com Discord';
     userInfo.classList.add('hidden'); 
+    localStorage.removeItem('discord_token');
+    updateUserUI();
     clearDrops(); 
     showNoAccessMessage();
     if (socket) { 
