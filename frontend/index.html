@@ -524,6 +524,48 @@
       }
     }
 
+.load-more-container {
+  text-align: center;
+  margin: 30px 0;
+  padding: 20px;
+}
+
+.load-more-btn {
+  background: linear-gradient(45deg, #ff78c4, #ff4d8d);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+}
+
+.load-more-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(255, 120, 196, 0.6);
+}
+
+.load-more-btn:disabled {
+  background: rgba(255, 120, 196, 0.3);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.load-more-btn:disabled:hover {
+  transform: none;
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
+}
+
+.hidden {
+  display: none;
+}
+    
     /* Animações extras */
     @keyframes bounce {
       0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
@@ -586,6 +628,12 @@
       </div>
     </div>
 
+    <div id="load-more-container" class="load-more-container hidden">
+      <button id="load-more-btn" class="load-more-btn">
+          <i class="fas fa-chevron-down"></i>🍭 Ver Mais
+      </button>
+     </div>
+    
     <div class="footer">
       <p>neko drops © by Anna 🌸</p>
     </div>
@@ -631,7 +679,12 @@
   const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
   const filters = document.querySelector('.filters');
   const connectionStatus = document.getElementById('connection-status');
-
+// Variáveis para paginação
+  const DROPS_PER_PAGE = 50;
+  let allDrops = []; // Todas as drops disponíveis
+  let displayedDrops = []; // Drops atualmente exibidas
+  let currentPage = 1;
+    
   let user = null, userRoles = [], drops = [], socket = null;
   let currentFilter = 'all';
 
@@ -665,6 +718,43 @@
     }
   }
 
+// Função para gerenciar a paginação
+function setupPagination() {
+  const loadMoreContainer = document.getElementById('load-more-container');
+  const loadMoreBtn = document.getElementById('load-more-btn');
+  
+  if (!loadMoreContainer || !loadMoreBtn) return;
+  
+  loadMoreBtn.addEventListener('click', loadMoreDrops);
+}
+
+// Função para carregar mais drops
+function loadMoreDrops() {
+  currentPage++;
+  renderDrops(currentFilter);
+}
+
+// Função para verificar se há mais drops para carregar
+function hasMoreDrops() {
+  const startIndex = (currentPage - 1) * DROPS_PER_PAGE;
+  return startIndex + DROPS_PER_PAGE < allDrops.length;
+}
+
+// Função para atualizar a visibilidade do botão "Ver Mais"
+function updateLoadMoreButton() {
+  const loadMoreContainer = document.getElementById('load-more-container');
+  const loadMoreBtn = document.getElementById('load-more-btn');
+  
+  if (!loadMoreContainer || !loadMoreBtn) return;
+  
+  if (hasMoreDrops()) {
+    loadMoreContainer.classList.remove('hidden');
+    loadMoreBtn.disabled = false;
+  } else {
+    loadMoreContainer.classList.add('hidden');
+  }
+    }
+    
   function loadDropsFromLocalStorage() {
     try {
       const savedDrops = localStorage.getItem('nekodrops_drops');
@@ -772,27 +862,26 @@ function setupWebSocket() {
   });
 }
   /* Carrega drops do servidor */
-  async function loadDropsFromServer() {
-    try {
-      const token = localStorage.getItem('discord_token');
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-      
-      const res = await fetch(`${BACKEND_URL}/api/drops`, { headers });
-      const data = await res.json();
-      
-      if (data.success) {
-        drops = data.drops;
-        saveDropsToLocalStorage(); // Salva no localStorage
-      } else {
-        console.error('Erro ao carregar drops do servidor:', data.error);
-        // Mantém os dados do localStorage se a requisição falhar
-      }
-    } catch (e) {
-      console.error('Erro ao carregar drops do servidor:', e);
-      // Mantém os dados do localStorage se a requisição falhar
+async function loadDropsFromServer() {
+  try {
+    const token = localStorage.getItem('discord_token');
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
+    const res = await fetch(`${BACKEND_URL}/api/drops`, { headers });
+    const data = await res.json();
+    
+    if (data.success) {
+      allDrops = data.drops;
+      currentPage = 1; // Resetar para a primeira página
+      saveDropsToLocalStorage();
+    } else {
+      console.error('Erro ao carregar drops do servidor:', data.error);
     }
-    renderDrops(currentFilter);
+  } catch (e) {
+    console.error('Erro ao carregar drops do servidor:', e);
   }
+  renderDrops(currentFilter);
+}
 
   /* Event listeners básicos (login modal, login button) */
   function setupEventListeners() {
@@ -1080,40 +1169,50 @@ async function updateUserUI() {
   }
 
   /* UI: render */
-  function renderDrops(filter = 'all') {
-    clearDrops();
-    
-    if (!user || userRoles.length === 0) { 
-      showNoAccessMessage(); 
+function renderDrops(filter = 'all') {
+  clearDrops();
+  
+  if (!user || userRoles.length === 0) { 
+    showNoAccessMessage(); 
+    return; 
+  }
+
+  const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
+  const isOwner = userRoles.includes(OWNER_ROLE_ID);
+  
+  // Filtrar todas as drops disponíveis
+  let filtered = allDrops;
+  if (filter === 'normal') {
+    filtered = allDrops.filter(d => !d.isVip);
+  } else if (filter === 'vip') {
+    if (!canSeeVip) { 
+      showNoVipAccessMessage();
       return; 
     }
-
-    const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
-    const isOwner = userRoles.includes(OWNER_ROLE_ID);
-    
-    let filtered = drops;
-    if (filter === 'normal') {
-      filtered = drops.filter(d => !d.isVip);
-    } else if (filter === 'vip') {
-      if (!canSeeVip) { 
-        showNoVipAccessMessage();
-        return; 
-      }
-      filtered = drops.filter(d => d.isVip);
-    }
-    
-    if (!filtered.length) {
-      showNoDropsMessage(filter);
-      return;
-    }
-    
-    filtered.forEach(d => {
-      const element = createRobloxAccountElement(d, isOwner);
-      if (element) {
-        dropsGrid.appendChild(element);
-      }
-    });
+    filtered = allDrops.filter(d => d.isVip);
   }
+  
+  if (!filtered.length) {
+    showNoDropsMessage(filter);
+    return;
+  }
+  
+  // Calcular quantas drops mostrar
+  const startIndex = 0;
+  const endIndex = currentPage * DROPS_PER_PAGE;
+  const dropsToShow = filtered.slice(startIndex, endIndex);
+  
+  // Renderizar as drops
+  dropsToShow.forEach(d => {
+    const element = createRobloxAccountElement(d, isOwner);
+    if (element) {
+      dropsGrid.appendChild(element);
+    }
+  });
+  
+  // Atualizar o botão "Ver Mais"
+  updateLoadMoreButton();
+}
 
   /* Função central: cria o card respeitando os diferentes tipos de embed */
   function createRobloxAccountElement(account, isOwner) {
@@ -1292,32 +1391,47 @@ async function updateUserUI() {
     dropsGrid.innerHTML = ''; 
   }
 
-  function showNoAccessMessage() {
-    dropsGrid.innerHTML = `
-      <div class="no-drops">
-        <h3>😿 Acesso Restrito</h3>
-        <p>Você precisa fazer login e ser membro do servidor para visualizar as contas fofinhas!</p>
-      </div>
-    `;
+function showNoAccessMessage() {
+  const loadMoreContainer = document.getElementById('load-more-container');
+  if (loadMoreContainer) {
+    loadMoreContainer.classList.add('hidden');
   }
+  
+  dropsGrid.innerHTML = `
+    <div class="no-drops">
+      <h3>😿 Acesso Restrito</h3>
+      <p>Você precisa fazer login e ser membro do servidor para visualizar as contas fofinhas!</p>
+    </div>
+  `;
+}
 
-  function showNoVipAccessMessage() {
-    dropsGrid.innerHTML = `
-      <div class="no-drops">
-        <h3>✨ Acesso VIP Necessário</h3>
-        <p>Você precisa ser VIP para visualizar as contas VIP fofinhas!</p>
-      </div>
-    `;
+function showNoVipAccessMessage() {
+  const loadMoreContainer = document.getElementById('load-more-container');
+  if (loadMoreContainer) {
+    loadMoreContainer.classList.add('hidden');
   }
+  
+  dropsGrid.innerHTML = `
+    <div class="no-drops">
+      <h3>✨ Acesso VIP Necessário</h3>
+      <p>Você precisa ser VIP para visualizar as contas VIP fofinhas!</p>
+    </div>
+  `;
+}
 
-  function showNoDropsMessage(filter = 'all') {
-    dropsGrid.innerHTML = `
-      <div class="no-drops">
-        <h3>😿 Nenhuma conta disponível</h3>
-        <p>${filter === 'vip' ? 'Não há contas VIP fofinhas disponíveis no momento.' : 'Volte mais tarde para ver novas contas fofinhas!'}</p>
-      </div>
-    `;
+function showNoDropsMessage(filter = 'all') {
+  const loadMoreContainer = document.getElementById('load-more-container');
+  if (loadMoreContainer) {
+    loadMoreContainer.classList.add('hidden');
   }
+  
+  dropsGrid.innerHTML = `
+    <div class="no-drops">
+      <h3>😿 Nenhuma conta disponível</h3>
+      <p>${filter === 'vip' ? 'Não há contas VIP fofinhas disponíveis no momento.' : 'Volte mais tarde para ver novas contas fofinhas!'}</p>
+    </div>
+  `;
+}
 
   /* filtros */
   function setupFilters() {
@@ -1334,7 +1448,10 @@ async function updateUserUI() {
     document.addEventListener('DOMContentLoaded', () => {
     // Configura os filtros
     setupFilters();
-
+    setupEventListeners();
+  
+   
+    setupPagination(); // ← Adicione esta linha
     // Processa o token do login (se houver)
     processAuthResponse();
 
