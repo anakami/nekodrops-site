@@ -183,9 +183,10 @@ app.post('/api/drops', async (req, res) => {
 });
 
 // Rota para listar drops
+// Rota para listar drops
 app.get('/api/drops', async (req, res) => {
   try {
-    const { type, limit = 50, offset = 0 } = req.query;
+    const { type } = req.query; // Removemos limit e offset pois o frontend cuida da paginação
     const authHeader = req.headers.authorization;
     
     let filteredDrops = dropsDatabase.filter(drop => drop.isActive !== false);
@@ -222,14 +223,13 @@ app.get('/api/drops', async (req, res) => {
     // Ordenar por data (mais recente primeiro)
     filteredDrops.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
     
-    // Paginação
-    const paginatedDrops = filteredDrops.slice(offset, offset + parseInt(limit));
-    
+    // 🔥 MUDANÇA PRINCIPAL: Retornar TODAS as drops filtradas
+    // O frontend agora cuida da paginação localmente
     res.json({
       success: true,
-      drops: paginatedDrops,
+      drops: filteredDrops, // Retorna todas as drops em vez de paginar
       total: filteredDrops.length,
-      hasMore: (offset + parseInt(limit)) < filteredDrops.length
+      hasMore: false // Não é mais necessário pois frontend cuida da paginação
     });
     
   } catch (error) {
