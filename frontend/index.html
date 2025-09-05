@@ -708,15 +708,75 @@
     return text;
   }
 
-  /* Funções de persistência */
-  function saveDropsToLocalStorage() {
-    try {
-      localStorage.setItem('nekodrops_drops', JSON.stringify(drops));
-      localStorage.setItem('nekodrops_timestamp', Date.now().toString());
-    } catch (e) {
-      console.error('Erro ao salvar drops no localStorage:', e);
-    }
+// Funções melhoradas de Local Storage
+function saveDropsToLocalStorage() {
+  try {
+    const dataToSave = {
+      drops: drops,
+      timestamp: Date.now(),
+      version: 'v2' // Adiciona versão para futuras migrações
+    };
+    localStorage.setItem('nekodrops_data', JSON.stringify(dataToSave));
+  } catch (e) {
+    console.error('Erro ao salvar drops no localStorage:', e);
   }
+}
+
+function loadDropsFromLocalStorage() {
+  try {
+    const savedData = localStorage.getItem('nekodrops_data');
+    if (!savedData) return [];
+    
+    const parsedData = JSON.parse(savedData);
+    
+    // Verifica se a estrutura é a nova ou antiga
+    if (parsedData.version === 'v2') {
+      // Dados na nova estrutura
+      const age = Date.now() - parsedData.timestamp;
+      if (age < 24 * 60 * 60 * 1000) { // 24 horas
+        return parsedData.drops || [];
+      }
+    } else {
+      // Dados na estrutura antiga (backward compatibility)
+      const age = Date.now() - parseInt(localStorage.getItem('nekodrops_timestamp') || '0');
+      if (age < 24 * 60 * 60 * 1000) { // 24 horas
+        return JSON.parse(savedData) || [];
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao carregar drops do localStorage:', e);
+  }
+  return [];
+}
+
+function clearDropsFromLocalStorage() {
+  try {
+    localStorage.removeItem('nekodrops_data');
+    localStorage.removeItem('nekodrops_drops');
+    localStorage.removeItem('nekodrops_timestamp');
+  } catch (e) {
+    console.error('Erro ao limpar drops do localStorage:', e);
+  }
+}
+
+// Função para migrar dados antigos (executar uma vez)
+function migrateOldStorage() {
+  try {
+    const oldDrops = localStorage.getItem('nekodrops_drops');
+    const oldTimestamp = localStorage.getItem('nekodrops_timestamp');
+    
+    if (oldDrops && !localStorage.getItem('nekodrops_data')) {
+      const dataToSave = {
+        drops: JSON.parse(oldDrops),
+        timestamp: parseInt(oldTimestamp || Date.now().toString()),
+        version: 'v2'
+      };
+      localStorage.setItem('nekodrops_data', JSON.stringify(dataToSave));
+    }
+  } catch (e) {
+    console.error('Erro na migração do storage:', e);
+  }
+}
 
 // Função para gerenciar a paginação
 function setupPagination() {
@@ -1046,6 +1106,143 @@ async function fetchUserInfo(token) {
     }
 }
 
+// Sistema de segurança anti-hack
+let securityCheckInterval = null;
+
+function initSecuritySystem() {
+  // Verificação periódica de segurança
+  securityCheckInterval = setInterval(() => {
+    checkUserAuthorization();
+    validateLocalStorage();
+  }, 30000); // A cada 30 segundos
+  
+  // Monitorar tentativas de acesso ao localStorage
+  monitorLocalStorageAccess();
+  
+  console.log('🔒 Sistema de segurança ativado');
+}
+
+function checkUserAuthorization() {
+  const token = localStorage.getItem('discord_token');
+  const userData = localStorage.getItem('discord_user');
+  
+  if (!token || !userData) {
+    // Usuário não logado - limpar dados sensíveis
+    clearSensitiveData();
+    return;
+  }
+  
+  // Verificar se o usuário ainda tem permissão
+  verifyUserPermissions(token).catch(() => {
+    clearSensitiveData();
+  });
+}
+
+async function verifyUserPermissions(token) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/user-roles`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!response.ok) throw new Error('Token inválido');
+    
+    const data = await response.json();
+    const userRoles = data.roles || [];
+    
+    // Se não for mais VIP, limpar dados VIP
+    const isVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
+    if (!isVip) {
+      clearVipData();
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
+function clearSensitiveData() {
+  // Limpar apenas dados sensíveis, mantendo drops normais
+  const savedData = localStorage.getItem('nekodrops_data');
+  if (savedData) {
+    try {
+      const parsedData = JSON.parse(savedData);
+      // Manter apenas drops não-VIP
+      if (parsedData.drops && Array.isArray(parsedData.drops)) {
+        parsedData.drops = parsedData.drops.filter(drop => !drop.isVip);
+        localStorage.setItem('nekodrops_data', JSON.stringify(parsedData));
+      }
+    } catch (e) {
+      console.error('Erro ao limpar dados sensíveis:', e);
+    }
+  }
+  
+  // Forçar re-render para remover VIPs da interface
+  if (currentFilter === 'vip' || currentFilter === 'all') {
+    renderDrops(currentFilter);
+  }
+}
+
+function clearVipData() {
+  // Limpar apenas dados VIP
+  const savedData = localStorage.getItem('nekodrops_data');
+  if (savedData) {
+    try {
+      const parsedData = JSON.parse(savedData);
+      // Remover drops VIP
+      if (parsedData.drops && Array.isArray(parsedData.drops)) {
+        parsedData.drops = parsedData.drops.filter(drop => !drop.isVip);
+        localStorage.setItem('nekodrops_data', JSON.stringify(parsedData));
+        allDrops = parsedData.drops;
+      }
+    } catch (e) {
+      console.error('Erro ao limpar dados VIP:', e);
+    }
+  }
+  
+  // Atualizar interface
+  renderDrops(currentFilter);
+}
+
+function validateLocalStorage() {
+  // Verificar integridade dos dados
+  try {
+    const savedData = localStorage.getItem('nekodrops_data');
+    if (savedData) {
+      JSON.parse(savedData); // Isso vai lançar erro se não for JSON válido
+    }
+  } catch (e) {
+    console.warn('Dados corrompidos no localStorage, limpando...');
+    localStorage.removeItem('nekodrops_data');
+    window.location.reload();
+  }
+}
+
+function monitorLocalStorageAccess() {
+  // Monitorar tentativas de acesso direto ao localStorage
+  const originalSetItem = localStorage.setItem;
+  const originalGetItem = localStorage.getItem;
+  
+  localStorage.setItem = function(key, value) {
+    if (key === 'nekodrops_data' && typeof value === 'string') {
+      try {
+        JSON.parse(value); // Validar JSON
+      } catch (e) {
+        console.warn('Tentativa de inserir dados inválidos bloqueada');
+        return;
+      }
+    }
+    return originalSetItem.apply(this, arguments);
+  };
+  
+  localStorage.getItem = function(key) {
+    if (key === 'nekodrops_data') {
+      // Registrar acesso para debugging
+      console.log('Acesso aos dados de drops detectado');
+    }
+    return originalGetItem.apply(this, arguments);
+  };
+}
+
+  
 async function updateUserUI() {
   const token = localStorage.getItem('discord_token');
   if (!token) {
@@ -1448,11 +1645,16 @@ function showNoDropsMessage(filter = 'all') {
     document.addEventListener('DOMContentLoaded', () => {
     // Configura os filtros
     setupFilters();
+    migrateOldStorage();
     setupEventListeners();
   
-   
-    setupPagination(); // ← Adicione esta linha
-    // Processa o token do login (se houver)
+     // Carrega do localStorage
+    const savedDrops = loadDropsFromLocalStorage();
+    if (savedDrops.length > 0) {
+    allDrops = savedDrops;
+    renderDrops(currentFilter);
+    }
+    setupPagination();  // Processa o token do login (se houver)
     processAuthResponse();
 
     // Atualiza a interface do usuário
@@ -1460,6 +1662,8 @@ function showNoDropsMessage(filter = 'all') {
 
     // Carrega os drops iniciais
     loadDrops();
+   
+  setTimeout(initSecuritySystem, 2000);
 });
   </script>
 </body>
