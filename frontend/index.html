@@ -778,6 +778,36 @@ function migrateOldStorage() {
   }
 }
 
+async function syncWithServer() {
+  try {
+    const token = localStorage.getItem('discord_token');
+    if (!token) return;
+    
+    const response = await fetch(`${BACKEND_URL}/api/drops`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        // Atualizar apenas se houver novas drops
+        if (data.drops.length !== allDrops.length) {
+          allDrops = data.drops;
+          saveDropsToLocalStorage();
+          renderDrops(currentFilter);
+          console.log('🔄 Drops sincronizadas com o servidor');
+        }
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ Erro na sincronização:', error);
+  }
+}
+
+// Sincronizar a cada 5 minutos
+setInterval(syncWithServer, 5 * 60 * 1000);
+
+    
 // Função para gerenciar a paginação
 function setupPagination() {
   const loadMoreContainer = document.getElementById('load-more-container');
@@ -909,11 +939,16 @@ function setupWebSocket() {
     connectionStatus.classList.remove('connected');
   });
 
-  socket.on('new-drop', dropData => { 
-    drops.unshift(dropData); 
+  socket.on('new-drop', dropData => {
+  // Verificar permissões antes de adicionar
+    const canSee = !dropData.isVip || userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
+  
+    if (canSee) {
+    allDrops.unshift(dropData);
     saveDropsToLocalStorage();
-    renderDrops(currentFilter); 
-  });
+    renderDrops(currentFilter);
+  }
+});
 
   socket.on('drop-deleted', id => { 
     drops = drops.filter(d => d.id !== id); 
@@ -1377,16 +1412,27 @@ function renderDrops(filter = 'all') {
   const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
   const isOwner = userRoles.includes(OWNER_ROLE_ID);
   
-  // Filtrar todas as drops disponíveis
-  let filtered = allDrops;
+  // 🔒 VERIFICAÇÃO DE SEGURANÇA EXTRA
+  if (filter === 'vip' && !canSeeVip) {
+    // Double-check: mesmo que o usuário tente forçar, não mostrar VIPs
+    showNoVipAccessMessage();
+    
+    // Limpar qualquer dado VIP que possa ter vazado
+    clearVipData();
+    return;
+  }
+  
+  // Filtrar drops com base nas permissões reais
+  let filtered = allDrops.filter(drop => {
+    if (drop.isVip && !canSeeVip) return false;
+    return true;
+  });
+  
+  // Aplicar filtro adicional se necessário
   if (filter === 'normal') {
-    filtered = allDrops.filter(d => !d.isVip);
+    filtered = filtered.filter(d => !d.isVip);
   } else if (filter === 'vip') {
-    if (!canSeeVip) { 
-      showNoVipAccessMessage();
-      return; 
-    }
-    filtered = allDrops.filter(d => d.isVip);
+    filtered = filtered.filter(d => d.isVip);
   }
   
   if (!filtered.length) {
