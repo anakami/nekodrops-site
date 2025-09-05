@@ -845,23 +845,6 @@ function updateLoadMoreButton() {
   }
     }
     
-  function loadDropsFromLocalStorage() {
-    try {
-      const savedDrops = localStorage.getItem('nekodrops_drops');
-      const savedTimestamp = localStorage.getItem('nekodrops_timestamp');
-      
-      // Carrega os dados salvos se não forem muito antigos (menos de 1 hora)
-      if (savedDrops && savedTimestamp) {
-        const age = Date.now() - parseInt(savedTimestamp);
-        if (age < 60 * 60 * 1000) { // 1 hora
-          return JSON.parse(savedDrops);
-        }
-      }
-    } catch (e) {
-      console.error('Erro ao carregar drops do localStorage:', e);
-    }
-    return [];
-  }
 
   function clearDropsFromLocalStorage() {
     try {
@@ -890,26 +873,6 @@ function updateLoadMoreButton() {
     });
   }
 
-  /* Carrega lista inicial e websocket */
-  document.addEventListener('DOMContentLoaded', () => {
-    setupEventListeners();
-    setupFilters();
-    setupCopyButtons();
-    setupModalClosing();
-    setupMobileMenu();
-    
-    // Primeiro carrega do localStorage para exibir rápido
-    const savedDrops = loadDropsFromLocalStorage();
-    if (savedDrops.length > 0) {
-      drops = savedDrops;
-      renderDrops(currentFilter);
-    }
-    
-    // Depois verifica autenticação e carrega do servidor
-    checkAuth();
-    processAuthResponse();
-    setupWebSocket();
-  });
 
   /* WebSocket */
 function setupWebSocket() {
@@ -951,7 +914,7 @@ function setupWebSocket() {
 });
 
   socket.on('drop-deleted', id => { 
-    drops = drops.filter(d => d.id !== id); 
+    allDrops = allDrops.filter(d => d.id !== id); 
     saveDropsToLocalStorage();
     renderDrops(currentFilter); 
   });
@@ -966,7 +929,7 @@ async function loadDropsFromServer() {
     const data = await res.json();
     
     if (data.success) {
-      allDrops = data.drops;
+      allDrops = data.allDrops;
       currentPage = 1; // Resetar para a primeira página
       saveDropsToLocalStorage();
     } else {
@@ -1611,6 +1574,12 @@ function renderDrops(filter = 'all') {
     return card;
   }
 
+// Adicione esta função que está sendo chamada mas não existe:
+function loadDrops() {
+  // Esta função pode ser simplesmente um alias para loadDropsFromServer
+  loadDropsFromServer();
+}
+    
   /* Delete drop (usa token se disponível) */
   async function deleteDrop(id) {
     try {
@@ -1620,7 +1589,7 @@ function renderDrops(filter = 'all') {
       
       if (!res.ok) throw new Error('Erro ao deletar');
       
-      drops = drops.filter(d => d.id !== id);
+      allDrops = allDrops.filter(d => d.id !== id);
       saveDropsToLocalStorage(); // Atualiza localStorage após deletar
       renderDrops(currentFilter);
     } catch (e) {
@@ -1688,27 +1657,31 @@ function showNoDropsMessage(filter = 'all') {
     });
   }
 
-    document.addEventListener('DOMContentLoaded', () => {
-    // Configura os filtros
-    setupFilters();
-    migrateOldStorage();
-    setupEventListeners();
+document.addEventListener('DOMContentLoaded', () => {
+  // Migrar dados antigos primeiro
+  migrateOldStorage();
   
-     // Carrega do localStorage
-    const savedDrops = loadDropsFromLocalStorage();
-    if (savedDrops.length > 0) {
-    allDrops = savedDrops;
+  // Configurações iniciais
+  setupFilters();
+  setupEventListeners();
+  setupCopyButtons();
+  setupModalClosing();
+  setupMobileMenu();
+  setupPagination();
+  
+  // 🔥 CORREÇÃO: Carrega do localStorage usando a função CORRETA
+  const savedDrops = loadDropsFromLocalStorage();
+  if (savedDrops.length > 0) {
+    allDrops = savedDrops; // ✅ Correto: atribui à allDrops
     renderDrops(currentFilter);
-    }
-    setupPagination();  // Processa o token do login (se houver)
-    processAuthResponse();
-
-    // Atualiza a interface do usuário
-    updateUserUI();
-
-    // Carrega os drops iniciais
-    loadDrops();
-   
+  }
+  
+  // Verifica autenticação e processa resposta
+  checkAuth();
+  processAuthResponse();
+  setupWebSocket();
+  
+  // Inicia sistema de segurança
   setTimeout(initSecuritySystem, 2000);
 });
   </script>
