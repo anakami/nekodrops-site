@@ -712,7 +712,7 @@
 function saveDropsToLocalStorage() {
   try {
     const dataToSave = {
-      drops: drops,
+      allDrops: allDrops,
       timestamp: Date.now(),
       version: 'v2' // Adiciona versão para futuras migrações
     };
@@ -886,10 +886,17 @@ function setupWebSocket() {
     }
   });
 
-  socket.on('authenticated', () => {
-    connectionStatus.textContent = '✨ Conectado';
-    connectionStatus.classList.add('connected');
-  });
+  // Adicione esta função para atualizar as roles quando o WebSocket se conectar
+  socket.on('authenticated', (data) => {
+  connectionStatus.textContent = '✨ Conectado';
+  connectionStatus.classList.add('connected');
+  
+  // ✅ CORREÇÃO: Atualizar userRoles se vierem do servidor
+  if (data.roles) {
+    userRoles = data.roles;
+    console.log('🔄 Roles atualizadas via WebSocket:', userRoles);
+  }
+});
 
   socket.on('auth_error', (err) => {
     console.warn('❌ Erro de autenticação WS:', err?.message || 'desconhecido');
@@ -903,13 +910,17 @@ function setupWebSocket() {
   });
 
   socket.on('new-drop', dropData => {
-  // Verificar permissões antes de adicionar
-    const canSee = !dropData.isVip || userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
+  // ✅ CORREÇÃO: Verificar permissões com dados atuais do usuário
+  const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
+  const canSee = !dropData.isVip || canSeeVip;
   
-    if (canSee) {
+  if (canSee) {
     allDrops.unshift(dropData);
     saveDropsToLocalStorage();
     renderDrops(currentFilter);
+    console.log('🎉 Novo drop recebido e exibido');
+  } else {
+    console.log('🔒 Drop VIP bloqueado - usuário sem permissão');
   }
 });
 
@@ -929,9 +940,10 @@ async function loadDropsFromServer() {
     const data = await res.json();
     
     if (data.success) {
-      allDrops = data.allDrops;
-      currentPage = 1; // Resetar para a primeira página
+      allDrops = data.drops; // ✅ CORREÇÃO: Usar data.drops em vez de data.allDrops
+      currentPage = 1;
       saveDropsToLocalStorage();
+      console.log('📥 Drops carregadas do servidor:', allDrops.length);
     } else {
       console.error('Erro ao carregar drops do servidor:', data.error);
     }
@@ -940,7 +952,6 @@ async function loadDropsFromServer() {
   }
   renderDrops(currentFilter);
 }
-
   /* Event listeners básicos (login modal, login button) */
   function setupEventListeners() {
     if (loginBtn) {
@@ -1083,8 +1094,14 @@ async function fetchUserInfo(token) {
         if (response.ok) {
             const userData = await response.json();
             
-            // Salvar dados do usuário
-            user = userData;
+            // ✅ CORREÇÃO: Garantir que todos os campos existam
+            user = {
+                id: userData.userId || '',
+                username: userData.username || 'Usuário',
+                avatar: userData.avatar || null,
+                discriminator: userData.discriminator || '0000'
+            };
+            
             userRoles = userData.roles || [];
             
             localStorage.setItem('discord_user', JSON.stringify(user));
@@ -1317,25 +1334,32 @@ async function updateUserUI() {
     }
   }
 
-  function updateUIAfterLogin() {
+function updateUIAfterLogin() {
   loginBtn.textContent = '🚪 Sair';
-  if (user && user.avatar) {
-    userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
-  }
+  
   if (user) {
     username.textContent = user.username;
+    
+    // ✅ CORREÇÃO: Verificar se tem avatar e usar fallback
+    if (user.avatar) {
+      userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
+    } else {
+      // Fallback para avatar padrão do Discord
+      const defaultAvatarNumber = user.discriminator % 5;
+      userAvatar.src = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`;
+    }
   }
+  
   userInfo.classList.remove('hidden'); 
   loginModal.style.display = 'none';
   document.body.style.overflow = 'auto';
   
-  // 🔥 ADICIONAR AQUI: Reautenticar WebSocket após login
+  // Reautenticar WebSocket
   if (socket && socket.connected) {
     socket.emit('authenticate', {
       userId: user.id,
       roles: userRoles
     });
-    console.log('🔐 WebSocket reautenticado após login');
   }
 }
 
