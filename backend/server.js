@@ -146,6 +146,59 @@ async function getUserInfoFromToken(token) {
   }
 }
 
+// Rota para verificação de segurança
+app.get('/api/security/validate', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ valid: false, reason: 'no_token' });
+  }
+
+  const token = authHeader.substring(7);
+  
+  try {
+    const userInfo = await getUserInfoFromToken(token);
+    
+    res.json({
+      valid: true,
+      userId: userInfo.userId,
+      roles: userInfo.roles,
+      isVip: userInfo.isVip,
+      isOwner: userInfo.isOwner,
+      timestamp: Date.now()
+    });
+    
+  } catch (error) {
+    res.status(401).json({ 
+      valid: false, 
+      reason: 'invalid_token',
+      message: error.message 
+    });
+  }
+});
+
+// Middleware de segurança adicional
+app.use('/api/drops', async (req, res, next) => {
+  if (req.method === 'GET') {
+    const authHeader = req.headers.authorization;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      
+      try {
+        // Verificar rapidamente se o token ainda é válido
+        const userInfo = await getUserInfoFromToken(token);
+        req.userInfo = userInfo;
+      } catch (error) {
+        // Token inválido, mas permitir acesso a drops públicos
+        console.log('⚠️ Token inválido em requisição de drops');
+      }
+    }
+  }
+  next();
+});
+
+
 // Rota para receber drops do bot
 app.post('/api/drops', async (req, res) => {
   try {
