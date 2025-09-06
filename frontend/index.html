@@ -751,26 +751,30 @@ function loadDropsFromLocalStorage() {
     
     const parsedData = JSON.parse(savedData);
     
-    // Verifica se a estrutura é a nova ou antiga
+    // ✅ CORREÇÃO: Verificar ambas as possibilidades (drops e allDrops)
+    let dropsData = [];
+    
     if (parsedData.version === 'v2') {
-      // Dados na nova estrutura
       const age = Date.now() - parsedData.timestamp;
-      if (age < 24 * 60 * 60 * 1000) { // 24 horas
-        return parsedData.drops || [];
+      if (age < 24 * 60 * 60 * 1000) {
+        // Tenta carregar de 'drops' primeiro, depois de 'allDrops'
+        dropsData = parsedData.drops || parsedData.allDrops || [];
       }
     } else {
-      // Dados na estrutura antiga (backward compatibility)
+      // Estrutura antiga
       const age = Date.now() - parseInt(localStorage.getItem('nekodrops_timestamp') || '0');
-      if (age < 24 * 60 * 60 * 1000) { // 24 horas
-        return JSON.parse(savedData) || [];
+      if (age < 24 * 60 * 60 * 1000) {
+        dropsData = JSON.parse(savedData) || [];
       }
     }
+    
+    return dropsData;
   } catch (e) {
     console.error('Erro ao carregar drops do localStorage:', e);
+    return [];
   }
-  return [];
 }
-
+    
 function clearDropsFromLocalStorage() {
   try {
     localStorage.removeItem('nekodrops_data');
@@ -867,15 +871,6 @@ function updateLoadMoreButton() {
   }
     }
     
-
-  function clearDropsFromLocalStorage() {
-    try {
-      localStorage.removeItem('nekodrops_drops');
-      localStorage.removeItem('nekodrops_timestamp');
-    } catch (e) {
-      console.error('Erro ao limpar drops do localStorage:', e);
-    }
-  }
 
   /* Delegação: copiar valores */
   function setupCopyButtons() {
@@ -975,7 +970,7 @@ function setupWebSocket() {
   connectionStatus.classList.add('connected');
   
   // ✅ CORREÇÃO: Atualizar userRoles se vierem do servidor
-  if (data.roles) {
+  if (data && data.roles) {
     userRoles = data.roles;
     console.log('🔄 Roles atualizadas via WebSocket:', userRoles);
   }
@@ -1515,8 +1510,6 @@ function renderDrops(filter = 'all') {
   if (filter === 'vip' && !canSeeVip) {
     // Double-check: mesmo que o usuário tente forçar, não mostrar VIPs
     showNoVipAccessMessage();
-    loadFlagsForIPs();
-    updateLoadMoreButton();
     // Limpar qualquer dado VIP que possa ter vazado
     clearVipData();
     return;
@@ -1553,7 +1546,7 @@ function renderDrops(filter = 'all') {
     }
   });
   
-  // Atualizar o botão "Ver Mais"
+  loadFlagsForIPs();
   updateLoadMoreButton();
 }
 
@@ -1611,7 +1604,6 @@ function renderDrops(filter = 'all') {
 // Tipo primary: IP + Cookie
 if (type === 'primary') {
   if (cleanIpVal) {
-    // ✅ SUBSTITUA este bloco:
     credentialsHTML += `
       <div class="credential-item">
         <span>🌐 IP: </span>
@@ -1623,8 +1615,6 @@ if (type === 'primary') {
         </div>
         <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
       </div>`;
-  }
-  // ... resto do código
 }
       if (cookieVal) {
         credentialsHTML += `
@@ -1662,7 +1652,6 @@ if (type === 'primary') {
 
 // Tipo ip: apenas IP
 if (type === 'ip' && cleanIpVal) {
-  // ✅ SUBSTITUA este bloco:
   credentialsHTML += `
     <div class="credential-item">
       <span>🌐 IP: </span>
@@ -1727,9 +1716,7 @@ if (type === 'ip' && cleanIpVal) {
     return card;
   }
 
-// Adicione esta função que está sendo chamada mas não existe:
 function loadDrops() {
-  // Esta função pode ser simplesmente um alias para loadDropsFromServer
   loadDropsFromServer();
 }
     
