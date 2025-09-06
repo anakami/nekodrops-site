@@ -291,6 +291,38 @@ app.get('/api/drops', async (req, res) => {
   }
 });
 
+// No arquivo server.js, adicione esta rota:
+app.get('/api/ip-info', async (req, res) => {
+  const { ip } = req.query;
+  
+  if (!ip) {
+    return res.status(400).json({ error: 'IP não fornecido' });
+  }
+  
+  try {
+    // Usar axios ou node-fetch para fazer a requisição do lado do servidor
+    const response = await fetch(`https://ipinfo.io/${ip}/json`);
+    const data = await response.json();
+    
+    res.json({
+      success: true,
+      countryInfo: {
+        code: data.country.toLowerCase(),
+        name: data.country_name || data.country,
+        flag: `https://flagcdn.com/w40/${data.country.toLowerCase()}.png`,
+        country: data.country_name || data.country,
+        city: data.city,
+        region: data.region
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Erro ao buscar informações do IP' 
+    });
+  }
+});
+                  
 // Rota para deletar um drop
 app.delete('/api/drops/:id', async (req, res) => {
   try {
