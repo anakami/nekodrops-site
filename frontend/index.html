@@ -942,26 +942,78 @@ function updateLoadMoreButton() {
     
 const countryCache = new Map();
 
-/* Função para buscar informações do país baseado no IP */
+// Função para validar IP
+function isValidIP(ip) {
+  if (!ip || typeof ip !== 'string') return false;
+  
+  // Remove espaços e caracteres inválidos
+  const cleanedIp = ip.trim();
+  if (cleanedIp === 'N/A' || cleanedIp === '') return false;
+  
+  // Padrão básico para IPv4
+  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (!ipv4Pattern.test(cleanedIp)) return false;
+  
+  // Verifica se cada octeto está entre 0-255
+  const parts = cleanedIp.split('.');
+  return parts.every(part => {
+    const num = parseInt(part, 10);
+    return !isNaN(num) && num >= 0 && num <= 255;
+  });
+}
+
 async function getCountryFromIP(ip) {
+  // Verificar se é um IP válido antes de consultar
+  if (!isValidIP(ip)) {
+    console.log('❌ IP inválido:', ip);
+    const invalidIP = {
+      code: 'invalid',
+      name: 'IP inválido',
+      flag: null
+    };
+    countryCache.set(ip, invalidIP);
+    return invalidIP;
+  }
+  
   // Verificar se já temos no cache
   if (countryCache.has(ip)) {
     return countryCache.get(ip);
   }
 
   try {
-    // API gratuita para geolocalização
-    const response = await fetch(`https://ipapi.co/${ip}/json/`);
+    console.log('🌍 Buscando país para IP:', ip);
     
-    if (!response.ok) throw new Error('Erro na API');
+    // API gratuita para geolocalização com timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
+    
+    const response = await fetch(`https://ipapi.co/${ip}/json/`, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+    }
     
     const data = await response.json();
+    
+    // Verificar se a API retornou dados válidos
+    if (data.error || data.reason === 'RateLimited') {
+      throw new Error(data.error || data.reason || 'API limitada');
+    }
     
     const countryInfo = {
       code: data.country_code?.toLowerCase() || 'unknown',
       name: data.country_name || 'Desconhecido',
-      flag: data.country_code ? `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png` : null
+      flag: data.country_code ? `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png` : null,
+      country: data.country_name,
+      city: data.city,
+      region: data.region
     };
+    
+    console.log('✅ País encontrado:', countryInfo.name, 'para IP:', ip);
     
     // Salvar no cache
     countryCache.set(ip, countryInfo);
@@ -969,14 +1021,32 @@ async function getCountryFromIP(ip) {
     return countryInfo;
     
   } catch (error) {
-    console.log('❌ Erro ao buscar país do IP:', ip, error);
+    console.log('❌ Erro ao buscar país do IP:', ip, error.message);
     
-    const fallback = {
-      code: 'unknown',
-      name: 'Desconhecido',
-      flag: null
-    };
+    // Diferentes tipos de fallback baseados no tipo de erro
+    let fallback;
     
+    if (error.name === 'AbortError') {
+      fallback = {
+        code: 'timeout',
+        name: 'Timeout na consulta',
+        flag: null
+      };
+    } else if (error.message.includes('RateLimited')) {
+      fallback = {
+        code: 'ratelimited',
+        name: 'API limitada - tente novamente',
+        flag: null
+      };
+    } else {
+      fallback = {
+        code: 'error',
+        name: 'Erro ao carregar',
+        flag: null
+      };
+    }
+    
+    // Cache de erro também para não ficar tentando sempre
     countryCache.set(ip, fallback);
     return fallback;
   }
@@ -1466,7 +1536,7 @@ async function loadFlagsForIPs() {
   for (const placeholder of flagPlaceholders) {
     const ip = placeholder.getAttribute('data-ip');
     
-    if (ip) {
+    if (ip && ip !== 'N/A' && ip.trim() !== '') {
       try {
         const countryInfo = await getCountryFromIP(ip);
         
@@ -1481,8 +1551,11 @@ async function loadFlagsForIPs() {
         }
         
       } catch (error) {
-        placeholder.innerHTML = '<span class="country-name">Erro</span>';
+        console.log('❌ Erro ao carregar bandeira para IP:', ip, error);
+        placeholder.innerHTML = '<span class="country-name">Erro ao carregar</span>';
       }
+    } else {
+      placeholder.innerHTML = '<span class="country-name">IP inválido</span>';
     }
   }
 }
@@ -1594,6 +1667,8 @@ function renderDrops(filter = 'all') {
   });
   
   loadFlagsForIPs();
+
+    
   updateLoadMoreButton();
 }
 
@@ -1652,24 +1727,16 @@ function renderDrops(filter = 'all') {
     }
 
 if (type === 'primary') {
-  if (cleanIpVal && isValidIp) {
+  if (cleanIpVal) {
     credentialsHTML += `
       <div class="credential-item">
         <span>🌐 IP: </span>
         <div class="ip-with-flag">
           <span class="credential-value">${cleanIpVal}</span>
           <div class="flag-placeholder" data-ip="${cleanIpVal}">
-            <div class="loading-spinner" style="width: 15px; height: 15px; margin-left: 8px;"></div>
+            <span class="country-name">Carregando...</span>
           </div>
         </div>
-        <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
-      </div>`;
-  } else if (cleanIpVal) {
-    // IP inválido - mostrar sem bandeira
-    credentialsHTML += `
-      <div class="credential-item">
-        <span>🌐 IP: </span>
-        <span class="credential-value">${cleanIpVal}</span>
         <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
       </div>`;
   }
@@ -1707,28 +1774,19 @@ if (type === 'primary') {
       }
     }
 
+// Tipo ip: apenas IP
 if (type === 'ip' && cleanIpVal) {
-  if (isValidIp) {
-    credentialsHTML += `
-      <div class="credential-item">
-        <span>🌐 IP: </span>
-        <div class="ip-with-flag">
-          <span class="credential-value">${cleanIpVal}</span>
-          <div class="flag-placeholder" data-ip="${cleanIpVal}">
-            <div class="loading-spinner" style="width: 15px; height: 15px; margin-left: 8px;"></div>
-          </div>
-        </div>
-        <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
-      </div>`;
-  } else {
-    // IP inválido - mostrar sem bandeira
-    credentialsHTML += `
-      <div class="credential-item">
-        <span>🌐 IP: </span>
+  credentialsHTML += `
+    <div class="credential-item">
+      <span>🌐 IP: </span>
+      <div class="ip-with-flag">
         <span class="credential-value">${cleanIpVal}</span>
-        <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
-      </div>`;
-  }
+        <div class="flag-placeholder" data-ip="${cleanIpVal}">
+          <span class="country-name">Carregando...</span>
+        </div>
+      </div>
+      <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
+    </div>`;
 }
 
     // Tipo credentials: apenas username e password (já adicionados acima)
@@ -1875,11 +1933,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setupMobileMenu();
   setupPagination();
   
-  // 🔥 CORREÇÃO: Carrega do localStorage usando a função CORRETA
   const savedDrops = loadDropsFromLocalStorage();
   if (savedDrops.length > 0) {
-    allDrops = savedDrops; // ✅ Correto: atribui à allDrops
+    allDrops = savedDrops;
     renderDrops(currentFilter);
+    setTimeout(() => loadFlagsForIPs(), 1000);
   }
   
   // Verifica autenticação e processa resposta
@@ -1890,23 +1948,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Inicia sistema de segurança
   setTimeout(initSecuritySystem, 2000);
 });
-// CORRETO
-setTimeout(() => {  
-    console.log('Debug: Verificando formatos de IP...');  
-    allDrops.forEach((drop, index) => {  
-        if (drop.ip) {  
-            const cleaned = cleanDiscordText(drop.ip);  
-            const extracted = extractIPFromLink(cleaned);  
-            const valid = isValidIP(extracted);  
-            console.log(`Drop ${index + 1}:`, {  // Template string com crase
-                original: drop.ip,  
-                cleaned: cleaned,  
-                extracted: extracted,  
-                isValid: valid  
-            });  
-        }  
-    });  
-}, 3000);
   </script>
 </body>
 </html>
