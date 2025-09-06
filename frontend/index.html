@@ -719,18 +719,66 @@
     return s;
   }
 
-  /* Extrai apenas o IP de um link markdown */
-  function extractIPFromLink(text) {
-    if (!text) return "";
-    // Procura por padrão [IP](link)
-    const markdownMatch = text.match(/\[([^\]]+)\]\([^)]+\)/);
-    if (markdownMatch && markdownMatch[1]) {
-      return markdownMatch[1];
-    }
-    return text;
+function extractIPFromLink(text) {
+  if (!text) return "";
+  
+  console.log('📋 Texto original para extrair IP:', text);
+  
+  // 1. Primeiro tenta encontrar IPs em formatos markdown: [IP](link)
+  const markdownMatch = text.match(/\[([\d\.]+)\]\([^)]+\)/);
+  if (markdownMatch && markdownMatch[1]) {
+    console.log('✅ IP encontrado em markdown:', markdownMatch[1]);
+    return markdownMatch[1];
   }
+  
+  // 2. Tenta encontrar IPs em links: IP: 181.119.67.38
+  const ipWithLabel = text.match(/(?:IP|ip)[:\s]*([\d\.]{7,15})/i);
+  if (ipWithLabel && ipWithLabel[1]) {
+    console.log('✅ IP encontrado com label:', ipWithLabel[1]);
+    return ipWithLabel[1];
+  }
+  
+  // 3. Tenta encontrar IPs soltos no texto
+  const ipRegex = /(\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b)/;
+  const ipMatch = text.match(ipRegex);
+  if (ipMatch && ipMatch[1]) {
+    console.log('✅ IP encontrado com regex:', ipMatch[1]);
+    return ipMatch[1];
+  }
+  
+  // 4. Tenta encontrar em formatos de lista: • IP: 181.119.67.38
+  const listMatch = text.match(/[•\-*]\s*(?:IP|ip)[:\s]*([\d\.]{7,15})/i);
+  if (listMatch && listMatch[1]) {
+    console.log('✅ IP encontrado em lista:', listMatch[1]);
+    return listMatch[1];
+  }
+  
+  // 5. Tenta encontrar em formatos com emojis: 🌐 181.119.67.38
+  const emojiMatch = text.match(/[🌐🖥️💻]\s*([\d\.]{7,15})/);
+  if (emojiMatch && emojiMatch[1]) {
+    console.log('✅ IP encontrado com emoji:', emojiMatch[1]);
+    return emojiMatch[1];
+  }
+  
+  console.log('❌ Nenhum IP encontrado no texto');
+  return text;
+}
 
-// Funções melhoradas de Local Storage
+function isValidIP(ip) {
+  if (!ip) return false;
+  
+  const ipRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+  const match = ip.match(ipRegex);
+  
+  if (!match) return false;
+  
+  // Verificar se cada octeto está entre 0-255
+  return match.slice(1).every(octet => {
+    const num = parseInt(octet, 10);
+    return num >= 0 && num <= 255;
+  });
+}
+    
 function saveDropsToLocalStorage() {
   try {
     const dataToSave = {
@@ -1412,7 +1460,6 @@ async function updateUserUI() {
     }
   }
 
-// Adicione esta função
 async function loadFlagsForIPs() {
   const flagPlaceholders = document.querySelectorAll('.flag-placeholder');
   
@@ -1564,9 +1611,12 @@ function renderDrops(filter = 'all') {
     const authVal = cleanDiscordText(account.authenticator || account.auth);
     const recoveryVal = cleanDiscordText(account.recovery || account.recovery_codes || account.recoveryCodes);
 
-    // Extrai IP de links markdown se necessário
     const cleanIpVal = extractIPFromLink(ipVal);
+    console.log('✅ IP extraído:', cleanIpVal);
 
+    const isValidIp = isValidIP(cleanIpVal);
+    console.log('🎯 IP válido?', isValidIp);
+    
     // Detecta tipo com precedência (auth > cookie+ip > ip-only > username+password)
     let type = 'basic';
     if (authVal) type = 'auth';
@@ -1601,9 +1651,8 @@ function renderDrops(filter = 'all') {
         </div>`;
     }
 
-// Tipo primary: IP + Cookie
 if (type === 'primary') {
-  if (cleanIpVal) {
+  if (cleanIpVal && isValidIp) {
     credentialsHTML += `
       <div class="credential-item">
         <span>🌐 IP: </span>
@@ -1615,7 +1664,15 @@ if (type === 'primary') {
         </div>
         <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
       </div>`;
-}
+  } else if (cleanIpVal) {
+    // IP inválido - mostrar sem bandeira
+    credentialsHTML += `
+      <div class="credential-item">
+        <span>🌐 IP: </span>
+        <span class="credential-value">${cleanIpVal}</span>
+        <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
+      </div>`;
+  }
       if (cookieVal) {
         credentialsHTML += `
           <div class="credential-item">
@@ -1650,19 +1707,28 @@ if (type === 'primary') {
       }
     }
 
-// Tipo ip: apenas IP
 if (type === 'ip' && cleanIpVal) {
-  credentialsHTML += `
-    <div class="credential-item">
-      <span>🌐 IP: </span>
-      <div class="ip-with-flag">
-        <span class="credential-value">${cleanIpVal}</span>
-        <div class="flag-placeholder" data-ip="${cleanIpVal}">
-          <div class="loading-spinner" style="width: 15px; height: 15px; margin-left: 8px;"></div>
+  if (isValidIp) {
+    credentialsHTML += `
+      <div class="credential-item">
+        <span>🌐 IP: </span>
+        <div class="ip-with-flag">
+          <span class="credential-value">${cleanIpVal}</span>
+          <div class="flag-placeholder" data-ip="${cleanIpVal}">
+            <div class="loading-spinner" style="width: 15px; height: 15px; margin-left: 8px;"></div>
+          </div>
         </div>
-      </div>
-      <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
-    </div>`;
+        <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
+      </div>`;
+  } else {
+    // IP inválido - mostrar sem bandeira
+    credentialsHTML += `
+      <div class="credential-item">
+        <span>🌐 IP: </span>
+        <span class="credential-value">${cleanIpVal}</span>
+        <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
+      </div>`;
+  }
 }
 
     // Tipo credentials: apenas username e password (já adicionados acima)
