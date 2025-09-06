@@ -306,6 +306,28 @@
       color: rgba(255, 255, 255, 0.9);
     }
 
+/* mostrar bandeira ip */
+.ip-with-flag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.country-flag {
+  width: 20px;
+  height: 15px;
+  border-radius: 2px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.country-name {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: 5px;
+}
+
+    
     .copy-btn {
       background: rgba(255, 120, 196, 0.3);
       border: none;
@@ -873,6 +895,67 @@ function updateLoadMoreButton() {
     });
   }
 
+// function ip
+    
+const countryCache = new Map();
+
+/* Função para buscar informações do país baseado no IP */
+async function getCountryFromIP(ip) {
+  // Verificar se já temos no cache
+  if (countryCache.has(ip)) {
+    return countryCache.get(ip);
+  }
+
+  try {
+    // API gratuita para geolocalização
+    const response = await fetch(`https://ipapi.co/${ip}/json/`);
+    
+    if (!response.ok) throw new Error('Erro na API');
+    
+    const data = await response.json();
+    
+    const countryInfo = {
+      code: data.country_code?.toLowerCase() || 'unknown',
+      name: data.country_name || 'Desconhecido',
+      flag: data.country_code ? `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png` : null
+    };
+    
+    // Salvar no cache
+    countryCache.set(ip, countryInfo);
+    
+    return countryInfo;
+    
+  } catch (error) {
+    console.log('❌ Erro ao buscar país do IP:', ip, error);
+    
+    const fallback = {
+      code: 'unknown',
+      name: 'Desconhecido',
+      flag: null
+    };
+    
+    countryCache.set(ip, fallback);
+    return fallback;
+  }
+}
+
+/* Função para criar elemento de IP com bandeira */
+function createIPWithFlagElement(ip, countryInfo) {
+  const container = document.createElement('div');
+  container.className = 'ip-with-flag';
+  
+  container.innerHTML = `
+    <span class="credential-value">${ip}</span>
+    ${countryInfo.flag ? `
+      <img src="${countryInfo.flag}" alt="${countryInfo.name}" class="country-flag" 
+           onerror="this.style.display='none'">
+      <span class="country-name">${countryInfo.name}</span>
+    ` : ''}
+  `;
+  
+  return container;
+}
+
 
   /* WebSocket */
 function setupWebSocket() {
@@ -1334,6 +1417,35 @@ async function updateUserUI() {
     }
   }
 
+// Adicione esta função
+async function loadFlagsForIPs() {
+  const flagPlaceholders = document.querySelectorAll('.flag-placeholder');
+  
+  for (const placeholder of flagPlaceholders) {
+    const ip = placeholder.getAttribute('data-ip');
+    
+    if (ip) {
+      try {
+        const countryInfo = await getCountryFromIP(ip);
+        
+        if (countryInfo.flag) {
+          placeholder.innerHTML = `
+            <img src="${countryInfo.flag}" alt="${countryInfo.name}" 
+                 class="country-flag" onerror="this.style.display='none'">
+            <span class="country-name">${countryInfo.name}</span>
+          `;
+        } else {
+          placeholder.innerHTML = `<span class="country-name">${countryInfo.name}</span>`;
+        }
+        
+      } catch (error) {
+        placeholder.innerHTML = '<span class="country-name">Erro</span>';
+      }
+    }
+  }
+}
+
+
 function updateUIAfterLogin() {
   loginBtn.textContent = '🚪 Sair';
   
@@ -1403,7 +1515,8 @@ function renderDrops(filter = 'all') {
   if (filter === 'vip' && !canSeeVip) {
     // Double-check: mesmo que o usuário tente forçar, não mostrar VIPs
     showNoVipAccessMessage();
-    
+    loadFlagsForIPs();
+    updateLoadMoreButton();
     // Limpar qualquer dado VIP que possa ter vazado
     clearVipData();
     return;
@@ -1495,15 +1608,24 @@ function renderDrops(filter = 'all') {
         </div>`;
     }
 
-    // Tipo primary: IP + Cookie
-    if (type === 'primary') {
-      if (cleanIpVal) {
-        credentialsHTML += `
-          <div class="credential-item">
-            <span>🌐 IP: </span><span class="credential-value">${cleanIpVal}</span>
-            <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
-          </div>`;
-      }
+// Tipo primary: IP + Cookie
+if (type === 'primary') {
+  if (cleanIpVal) {
+    // ✅ SUBSTITUA este bloco:
+    credentialsHTML += `
+      <div class="credential-item">
+        <span>🌐 IP: </span>
+        <div class="ip-with-flag">
+          <span class="credential-value">${cleanIpVal}</span>
+          <div class="flag-placeholder" data-ip="${cleanIpVal}">
+            <div class="loading-spinner" style="width: 15px; height: 15px; margin-left: 8px;"></div>
+          </div>
+        </div>
+        <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
+      </div>`;
+  }
+  // ... resto do código
+}
       if (cookieVal) {
         credentialsHTML += `
           <div class="credential-item">
@@ -1538,14 +1660,21 @@ function renderDrops(filter = 'all') {
       }
     }
 
-    // Tipo ip: apenas IP (além de usuário/senha já adicionados)
-    if (type === 'ip' && cleanIpVal) {
-      credentialsHTML += `
-        <div class="credential-item">
-          <span>🌐 IP: </span><span class="credential-value">${cleanIpVal}</span>
-          <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
-        </div>`;
-    }
+// Tipo ip: apenas IP
+if (type === 'ip' && cleanIpVal) {
+  // ✅ SUBSTITUA este bloco:
+  credentialsHTML += `
+    <div class="credential-item">
+      <span>🌐 IP: </span>
+      <div class="ip-with-flag">
+        <span class="credential-value">${cleanIpVal}</span>
+        <div class="flag-placeholder" data-ip="${cleanIpVal}">
+          <div class="loading-spinner" style="width: 15px; height: 15px; margin-left: 8px;"></div>
+        </div>
+      </div>
+      <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
+    </div>`;
+}
 
     // Tipo credentials: apenas username e password (já adicionados acima)
     // Se não houver credenciais, mostra mensagem
