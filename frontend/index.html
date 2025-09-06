@@ -1890,6 +1890,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // Inicia sistema de segurança
   setTimeout(initSecuritySystem, 2000);
 });
+// CORRETO
+setTimeout(() => {  
+    console.log('Debug: Verificando formatos de IP...');  
+    allDrops.forEach((drop, index) => {  
+        if (drop.ip) {  
+            const cleaned = cleanDiscordText(drop.ip);  
+            const extracted = extractIPFromLink(cleaned);  
+            const valid = isValidIP(extracted);  
+            console.log(`Drop ${index + 1}:`, {  // Template string com crase
+                original: drop.ip,  
+                cleaned: cleaned,  
+                extracted: extracted,  
+                isValid: valid  
+            });  
+        }  
+    });  
+}, 3000);
   </script>
 </body>
 </html>
