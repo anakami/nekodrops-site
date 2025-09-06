@@ -930,15 +930,12 @@ const countryCache = new Map();
 function isValidIP(ip) {
   if (!ip || typeof ip !== 'string') return false;
   
-  // Remove espaços e caracteres inválidos
   const cleanedIp = ip.trim();
   if (cleanedIp === 'N/A' || cleanedIp === '' || cleanedIp === 'undefined') return false;
   
-  // Padrão básico para IPv4
   const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
   if (!ipv4Pattern.test(cleanedIp)) return false;
   
-  // Verifica se cada octeto está entre 0-255
   const parts = cleanedIp.split('.');
   return parts.every(part => {
     const num = parseInt(part, 10);
@@ -947,9 +944,8 @@ function isValidIP(ip) {
 }
 
 async function getCountryFromIP(ip) {
-  // Verificar se é um IP válido antes de consultar
+  // Verificar se é um IP válido
   if (!isValidIP(ip)) {
-    console.log('❌ IP inválido:', ip);
     const invalidIP = {
       code: 'invalid',
       name: 'IP inválido',
@@ -959,7 +955,7 @@ async function getCountryFromIP(ip) {
     return invalidIP;
   }
   
-  // Verificar se já temos no cache
+  // Verificar cache
   if (countryCache.has(ip)) {
     return countryCache.get(ip);
   }
@@ -967,77 +963,78 @@ async function getCountryFromIP(ip) {
   try {
     console.log('🌍 Buscando país para IP:', ip);
     
-    // ✅ ALTERNATIVA 1: ipapi.co (mais confiável)
-    let apiUrl = `https://ipapi.co/${ip}/json/`;
+    // ✅ NOVA API: ipinfo.io (mais confiável e com free tier)
+    // ✅ ALTERNATIVA: ipapi.com (também boa)
+    const apis = [
+      `https://ipinfo.io/${ip}/json?token=test`, // Sem token, funciona para poucas requisições
+      `https://ipapi.co/${ip}/json/`,
+      `https://json.geoiplookup.io/${ip}`
+    ];
     
-    // ✅ ALTERNATIVA 2: ip-api.com (fallback)
-    const fallbackApiUrl = `http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,regionName,city`;
+    let countryInfo = null;
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 segundos timeout
-
-    // Tenta a primeira API
-    let response = await fetch(apiUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    // Se a primeira API falhar, tenta a alternativa
-    if (!response.ok) {
-      console.log('🔄 Tentando API alternativa...');
-      const fallbackController = new AbortController();
-      const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 3000);
-      
-      response = await fetch(fallbackApiUrl, {
-        signal: fallbackController.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    // Tentar cada API até uma funcionar
+    for (const apiUrl of apis) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        
+        const response = await fetch(apiUrl, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json'
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Processar resposta baseado na API
+          if (data.country) {
+            // ipinfo.io format
+            countryInfo = {
+              code: data.country.toLowerCase(),
+              name: data.country_name || data.country,
+              flag: `https://flagcdn.com/w40/${data.country.toLowerCase()}.png`,
+              country: data.country_name || data.country,
+              city: data.city,
+              region: data.region
+            };
+          } else if (data.country_code) {
+            // ipapi.co format
+            countryInfo = {
+              code: data.country_code.toLowerCase(),
+              name: data.country_name || data.country,
+              flag: `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png`,
+              country: data.country_name || data.country,
+              city: data.city,
+              region: data.region
+            };
+          } else if (data.country_code) {
+            // geoiplookup format
+            countryInfo = {
+              code: data.country_code.toLowerCase(),
+              name: data.country_name,
+              flag: `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png`,
+              country: data.country_name,
+              city: data.city,
+              region: data.region
+            };
+          }
+          
+          if (countryInfo) break; // Se encontrou, para o loop
         }
-      });
-      
-      clearTimeout(fallbackTimeoutId);
+      } catch (error) {
+        console.log(`❌ API ${apiUrl} falhou:`, error.message);
+        continue; // Tenta a próxima API
+      }
     }
     
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    // Processar resposta baseado na API usada
-    let countryInfo;
-    
-    if (data.country_code || data.country) {
-      // Resposta do ipapi.co
-      countryInfo = {
-        code: (data.country_code || '').toLowerCase(),
-        name: data.country_name || data.country || 'Desconhecido',
-        flag: data.country_code ? `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png` : null,
-        country: data.country_name || data.country,
-        city: data.city,
-        region: data.region || data.regionName
-      };
-    } else if (data.countryCode) {
-      // Resposta do ip-api.com
-      countryInfo = {
-        code: (data.countryCode || '').toLowerCase(),
-        name: data.country || 'Desconhecido',
-        flag: data.countryCode ? `https://flagcdn.com/w40/${data.countryCode.toLowerCase()}.png` : null,
-        country: data.country,
-        city: data.city,
-        region: data.regionName
-      };
-    } else {
-      throw new Error('Formato de resposta inválido');
-    }
-    
-    // Se não encontrou país, considera como erro
-    if (!countryInfo.code || countryInfo.code === 'undefined') {
-      throw new Error('País não encontrado');
+    if (!countryInfo) {
+      throw new Error('Todas as APIs falharam');
     }
     
     console.log('✅ País encontrado:', countryInfo.name, 'para IP:', ip);
@@ -1050,18 +1047,27 @@ async function getCountryFromIP(ip) {
   } catch (error) {
     console.log('❌ Erro ao buscar país do IP:', ip, error.message);
     
-    // Fallback mais amigável
-    const fallback = {
-      code: 'error',
-      name: 'Erro ao carregar',
-      flag: null,
-      error: error.message
-    };
+    // Fallback: usar API local via backend
+    try {
+      console.log('🔄 Tentando via backend...');
+      const response = await fetch(`${BACKEND_URL}/api/ip-info?ip=${ip}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          countryCache.set(ip, data.countryInfo);
+          return data.countryInfo;
+        }
+      }
+    } catch (backendError) {
+      console.log('❌ Backend também falhou:', backendError.message);
+    }
     
-    // Cache de erro por 1 minuto apenas
-    setTimeout(() => {
-      countryCache.delete(ip);
-    }, 60000);
+    // Fallback final
+    const fallback = {
+      code: 'unknown',
+      name: 'Desconhecido',
+      flag: null
+    };
     
     countryCache.set(ip, fallback);
     return fallback;
@@ -1560,9 +1566,12 @@ async function loadFlagsForIPs() {
     
     if (ip && ip !== 'N/A' && ip.trim() !== '') {
       try {
+        // Mostrar loading
+        placeholder.innerHTML = '<span class="country-name">Carregando...</span>';
+        
         const countryInfo = await getCountryFromIP(ip);
         
-        if (countryInfo.flag) {
+        if (countryInfo.flag && countryInfo.code !== 'error' && countryInfo.code !== 'invalid') {
           placeholder.innerHTML = `
             <img src="${countryInfo.flag}" alt="${countryInfo.name}" 
                  class="country-flag" onerror="this.style.display='none'">
@@ -1574,7 +1583,7 @@ async function loadFlagsForIPs() {
         
       } catch (error) {
         console.log('❌ Erro ao carregar bandeira para IP:', ip, error);
-        placeholder.innerHTML = '<span class="country-name">Erro ao carregar</span>';
+        placeholder.innerHTML = '<span class="country-name">Desconhecido</span>';
       }
     } else {
       placeholder.innerHTML = '<span class="country-name">IP inválido</span>';
