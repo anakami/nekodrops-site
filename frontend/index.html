@@ -584,6 +584,11 @@
   box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
 }
 
+.filter-btn[data-filter="methods"] {
+  background: linear-gradient(45deg, #9b59b6, #8e44ad);
+  border-color: rgba(155, 89, 182, 0.3);
+}
+    
 .hidden {
   display: none;
 }
@@ -642,6 +647,8 @@
       <button class="filter-btn active" data-filter="all">🌸 All Accs</button>
       <button class="filter-btn" data-filter="normal">🐾 Normal Acc</button>
       <button class="filter-btn" data-filter="vip">✨ VIP Acc</button>
+      <button class="filter-btn" data-filter="methods"
+      <i class="fas fa-wand-magic-sparkles"></i> Métodos</button>
     </div>
 
     <div id="drops-container">
@@ -685,6 +692,7 @@
   const MEMBER_ROLE_ID = "1399662113114296360";
   const VIP_ROLE_ID = "1399662852448587859";
   const OWNER_ROLE_ID = "1399664650638856303";
+  const BOOSTER_ROLE_ID = "1405247138799030343";
   const BACKEND_URL = 'https://nekodrops-backend.onrender.com';
 
   /* Elementos */
@@ -763,6 +771,37 @@ function extractIPFromLink(text) {
   console.log('❌ Nenhum IP encontrado no texto');
   return text;
 }
+
+async function checkMethodsPermissions() {
+  const token = localStorage.getItem('discord_token');
+  if (!token) return null;
+  
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/user-methods-permissions`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return data.success ? data.permissions : null;
+    }
+  } catch (error) {
+    console.error('Erro ao verificar permissões:', error);
+  }
+  return null;
+}
+
+// Função para redirecionar para métodos
+async function redirectToMethods() {
+  const permissions = await checkMethodsPermissions();
+  
+  if (permissions && permissions.canSeeMethods) {
+    window.location.href = 'metodos/booster.html';
+  } else {
+    window.location.href = 'metodos/no-access.html';
+  }
+}
+
     
 function saveDropsToLocalStorage() {
   try {
@@ -1942,15 +1981,20 @@ function showNoDropsMessage(filter = 'all') {
 
   /* filtros */
   function setupFilters() {
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentFilter = btn.dataset.filter;
-        renderDrops(currentFilter);
-      });
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.filter === 'methods') {
+        redirectToMethods();
+        return;
+      }
+      
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      renderDrops(currentFilter);
     });
-  }
+  });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   // Migrar dados antigos primeiro
