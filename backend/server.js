@@ -28,6 +28,7 @@ const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI || "https://nekodrops-backend.onrender.com/auth/callback";
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://nekodrops-site.onrender.com";
 const SERVER_ID = process.env.SERVER_ID;
+const BOOSTER_ROLE_ID = process.env.BOOSTER_ROLE_ID;
 const MEMBER_ROLE_ID = process.env.MEMBER_ROLE_ID;
 const VIP_ROLE_ID = process.env.VIP_ROLE_ID;
 const OWNER_ROLE_ID = process.env.OWNER_ROLE_ID;
@@ -146,7 +147,41 @@ async function getUserInfoFromToken(token) {
   }
 }
 
-// Rota para verificação de segurança
+app.get('/api/user-methods-permissions', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token não fornecido' });
+  }
+
+  const token = authHeader.substring(7);
+
+  try {
+    const userInfo = await getUserInfoFromToken(token);
+    
+    const hasBooster = userInfo.roles.includes(BOOSTER_ROLE_ID);
+    const hasVip = userInfo.roles.includes(VIP_ROLE_ID) || userInfo.roles.includes(OWNER_ROLE_ID);
+    const hasMember = userInfo.roles.includes(MEMBER_ROLE_ID);
+    
+    res.json({
+      success: true,
+      permissions: {
+        canSeeMethods: hasMember, // Mínimo precisa ser membro
+        canSeeFreeMethods: hasMember,
+        canSeeVipMethods: hasVip,
+        canSeeBoosterMethods: hasBooster,
+        hasBooster: hasBooster,
+        hasVip: hasVip,
+        hasMember: hasMember
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao verificar permissões de métodos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 app.get('/api/security/validate', async (req, res) => {
   const authHeader = req.headers.authorization;
   
