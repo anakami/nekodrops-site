@@ -168,21 +168,21 @@
           <div class="method-icon">🎁</div>
           <h3 class="method-title">Método Free</h3>
           <p class="method-description">Métodos gratuitos para todos os membros</p>
-          <button class="method-btn" onclick="showMethod('free')">Ver Método</button>
+          <button class="method-btn" id="free-btn">Ver Métodos</button>
         </div>
 
         <div class="method-card" id="vip-method">
           <div class="method-icon">✨</div>
           <h3 class="method-title">Método VIP</h3>
           <p class="method-description">Métodos exclusivos para VIPs</p>
-          <button class="method-btn" id="vip-btn">Ver Método</button>
+          <button class="method-btn" id="vip-btn">Ver Métodos</button>
         </div>
 
         <div class="method-card" id="booster-method">
           <div class="method-icon">🚀</div>
           <h3 class="method-title">Método Booster</h3>
           <p class="method-description">Métodos especiais para Boosters</p>
-          <button class="method-btn" id="booster-btn">Ver Método</button>
+          <button class="method-btn" id="booster-btn">Ver Métodos</button>
         </div>
       </div>
     </div>
@@ -191,6 +191,8 @@
   </div>
 
   <script>
+    let userPermissions = null;
+
     async function checkPermissions() {
       try {
         const token = localStorage.getItem('discord_token');
@@ -205,7 +207,9 @@
 
         if (response.ok) {
           const data = await response.json();
-          updateUI(data.permissions);
+          userPermissions = data.permissions;
+          updateUI(userPermissions);
+          setupButtonListeners();
         } else {
           showNoAccess();
         }
@@ -233,6 +237,31 @@
       }
     }
 
+    function setupButtonListeners() {
+      // Botão Free - todos os membros podem acessar
+      document.getElementById('free-btn').addEventListener('click', () => {
+        window.location.href = 'members/methods.html';
+      });
+
+      // Botão VIP - apenas VIPs podem acessar
+      document.getElementById('vip-btn').addEventListener('click', () => {
+        if (userPermissions.canSeeVipMethods) {
+          window.location.href = 'vips/methods.html';
+        } else {
+          alert('Você precisa ser VIP para acessar os métodos VIP!');
+        }
+      });
+
+      // Botão Booster - apenas Boosters podem acessar
+      document.getElementById('booster-btn').addEventListener('click', () => {
+        if (userPermissions.canSeeBoosterMethods) {
+          window.location.href = 'boosters/methods.html';
+        } else {
+          alert('Você precisa ser Booster para acessar os métodos Booster!');
+        }
+      });
+    }
+
     function showNoAccess() {
       document.getElementById('methods-container').innerHTML = `
         <div class="no-access">
@@ -241,10 +270,6 @@
           <p>Você não tem permissão para ver os métodos no momento</p>
         </div>
       `;
-    }
-
-    function showMethod(type) {
-      alert(`Método ${type} selecionado! Em desenvolvimento...`);
     }
 
     // Verificar permissões ao carregar a página
