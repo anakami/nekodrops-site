@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Métodos Boosters ✨</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Fundo com imagem e overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
+                  url('../assets/m_pc.jpg') no-repeat center center fixed;
+      background-size: cover;
+      z-index: -2;
+      filter: blur(4px) brightness(0.8);
+    }
+
+    /* Para dispositivos móveis */
+    @media (max-width: 768px) {
+      body::before {
+        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
+                    url('../assets/m_mobile.jpg') no-repeat center center fixed;
+        background-size: cover;
+      }
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: rgba(25, 25, 35, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 30px;
+      border: 2px solid rgba(255, 120, 196, 0.3);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      background: linear-gradient(45deg, #ff78c4, #ff4d8d, #9b59b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 2px 10px rgba(255, 120, 196, 0.3);
+    }
+
+    h2 {
+      font-size: 2.2rem;
+      background: linear-gradient(45deg, #ff78c4, #9b59b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 15px;
+    }
+
+    h3 {
+      font-size: 1.8rem;
+      color: #ff78c4;
+      margin-bottom: 12px;
+    }
+
+    h4 {
+      font-size: 1.4rem;
+      color: #ff78c4;
+      margin-bottom: 10px;
+    }
+
+    p {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin-bottom: 15px;
+      opacity: 0.9;
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      opacity: 0.9;
+      margin-bottom: 20px;
+    }
+
+    .methods-container {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .method-card {
+      background: rgba(35, 35, 45, 0.9);
+      border-radius: 15px;
+      padding: 25px;
+      border: 2px solid rgba(155, 89, 182, 0.4);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .method-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(155, 89, 182, 0.4);
+      border-color: rgba(155, 89, 182, 0.7);
+    }
+
+    .method-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .method-icon {
+      font-size: 2.5rem;
+      margin-right: 15px;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(155, 89, 182, 0.2);
+    }
+
+    .method-content {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 20px;
+    }
+
+    .method-benefits {
+      background: rgba(255, 120, 196, 0.1);
+      padding: 15px;
+      border-radius: 10px;
+      border-left: 4px solid #ff78c4;
+    }
+
+    .benefits-list {
+      list-style: none;
+    }
+
+    .benefits-list li {
+      margin-bottom: 8px;
+      padding-left: 25px;
+      position: relative;
+      font-size: 1.1rem;
+    }
+
+    .benefits-list li:before {
+      content: '🌸';
+      position: absolute;
+      left: 0;
+      color: #ff78c4;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid rgba(255, 120, 196, 0.3);
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .back-btn {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 25px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      margin-bottom: 20px;
+      font-size: 1.1rem;
+    }
+
+    .back-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    /* Sistema de emojis do Discord */
+    .emoji {
+      width: 22px;
+      height: 22px;
+      vertical-align: middle;
+      margin: 0 2px;
+      object-fit: contain;
+    }
+
+    .emoji-large {
+      width: 42px;
+      height: 42px;
+      margin: 0 5px;
+    }
+
+    .emoji-gif {
+      width: 32px;
+      height: 32px;
+      vertical-align: middle;
+      margin: 0 3px;
+      object-fit: contain;
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+      .method-content {
+        grid-template-columns: 1fr;
+      }
+      
+      .method-header {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .method-icon {
+        margin-right: 0;
+        margin-bottom: 15px;
+      }
+      
+      h1 {
+        font-size: 2.2rem;
+      }
+      
+      h2 {
+        font-size: 1.8rem;
+      }
+    }
+
+    /* Efeito de partículas */
+    .kawaii-particle {
+      position: fixed;
+      font-size: 24px;
+      z-index: -1;
+      opacity: 0.3;
+      animation: float 6s infinite ease-in-out;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(10deg); }
+    }
+
+    /* Canvas para efeitos de neve */
+    #snow {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Canvas para efeitos de neve -->
+  <canvas id="snow"></canvas>
+
+  <!-- Partículas de fundo -->
+  <div class="kawaii-particle" style="top: 10%; left: 5%;">🌸</div>
+  <div class="kawaii-particle" style="top: 20%; right: 8%;">🐱</div>
+  <div class="kawaii-particle" style="top: 40%; left: 8%;">✨</div>
+  <div class="kawaii-particle" style="top: 60%; right: 12%;">🦄</div>
+  <div class="kawaii-particle" style="top: 80%; left: 15%;">🌟</div>
+
+  <div class="container">
+    <div class="header">
+      <h1>
+        <span class="emoji-placeholder" data-emoji=":anotei:"></span>
+        Métodos Exclusivos Boosters 
+        <span class="emoji-placeholder" data-emoji=":anotei:"></span>
+      </h1>
+      <p class="subtitle">Métodos especiais para nossos apoiadores mais fofinhos! <span class="emoji-placeholder" data-emoji=":cathide:"></span></p>
+    </div>
+
+    <a href="../metodos/booster.html" class="back-btn">← Voltar</a>
+
+    <div class="methods-container">
+      <div class="method-card">
+        <div class="method-header">
+          <div class="method-icon">
+            <span class="emoji-placeholder" data-emoji=":diamond:"></span>
+          </div>
+          <h2>NITRO GEN <span class="emoji-placeholder" data-emoji=":diamond:"></span></h2>
+        </div>
+        <div class="method-content">
+          <div>
+            <p>Com nosso gerador de Nitro, você poderá obter Nitro do Discord de forma rápida e fácil! <span class="emoji-placeholder" data-emoji=":nspin:"></span></p>
+            <p>Com isso você irá conseguir gerar nitros fofinhos <span class="emoji-placeholder" data-emoji=":npc:"></span></p>
+          </div>
+          <div class="method-benefits">
+            <h4><span class="emoji-placeholder" data-emoji=":npc:"></span> O que você vai conseguir:</h4>
+            <ul class="benefits-list">
+              <li>Gerar Nitros fofinhos <span class="emoji-placeholder" data-emoji=":diamond:"></span></li>
+              <li>Ativar emojis animados <span class="emoji-placeholder" data-emoji=":nspin:"></span></li>
+              <li>Melhor qualidade de streaming</li>
+              <li>Suporte ao Discord <span class="emoji-placeholder" data-emoji=":anotei:"></span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-header">
+          <div class="method-icon">
+            <span class="emoji-placeholder" data-emoji=":nspin:"></span>
+          </div>
+          <h2>NITRO INFINITY <span class="emoji-placeholder" data-emoji=":nspin:"></span></h2>
+        </div>
+        <div class="method-content">
+          <div>
+            <p>Com este método incrível, você terá acesso a Nitro infinitamente, sem preocupações! <span class="emoji-placeholder" data-emoji=":cathide:"></span></p>
+            <p>Com esse método você terá nitro infinitamente <span class="emoji-placeholder" data-emoji=":npc:"></span></p>
+          </div>
+          <div class="method-benefits">
+            <h4><span class="emoji-placeholder" data-emoji=":npc:"></span> O que você vai conseguir:</h4>
+            <ul class="benefits-list">
+              <li>Nitro ilimitado <span class="emoji-placeholder" data-emoji=":diamond:"></span></li>
+              <li>Acesso vitalício</li>
+              <li>Atualizações constantes <span class="emoji-placeholder" data-emoji=":nspin:"></span></li>
+              <li>Suporte prioritário <span class="emoji-placeholder" data-emoji=":anotei:"></span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-header">
+          <div class="method-icon">
+            <span class="emoji-placeholder" data-emoji=":cathide:"></span>
+          </div>
+          <h2>ROBUX METHOD <span class="emoji-placeholder" data-emoji=":cathide:"></span></h2>
+        </div>
+        <div class="method-content">
+          <div>
+            <p>Este método exclusivo permite que você obtenha Robux para personalizar seu avatar e experiências no Roblox! <span class="emoji-placeholder" data-emoji=":diamond:"></span></p>
+            <p>Com esse método você vai conseguir muitos robux fofinhos <span class="emoji-placeholder" data-emoji=":npc:"></span></p>
+          </div>
+          <div class="method-benefits">
+            <h4><span class="emoji-placeholder" data-emoji=":npc:"></span> O que você vai conseguir:</h4>
+            <ul class="benefits-list">
+              <li>Muitos Robux fofinhos <span class="emoji-placeholder" data-emoji=":diamond:"></span></li>
+              <li>Itens exclusivos <span class="emoji-placeholder" data-emoji=":nspin:"></span></li>
+              <li>Avatar personalizado</li>
+              <li>Acesso a jogos premium <span class="emoji-placeholder" data-emoji=":anotei:"></span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>neko beams © 2023 - Todos os direitos reservados <span class="emoji-placeholder" data-emoji=":cathide:"></span></p>
+    </div>
+  </div>
+
+  <script>
+    // Mapa de emojis do Discord
+    const emojiMap = {
+      ":anotei:": "https://imgur.com/rMUeTdP.png",
+      ":cathide:": "https://imgur.com/xcrY7x1.gif",
+      ":nspin:": "https://imgur.com/TMBdmzg.gif",
+      ":diamond:": "https://imgur.com/qe1gwCq.gif",
+      ":npc:": "https://imgur.com/iJwtQnp.gif"
+    };
+
+    // Função para substituir emojis por imagens
+    function substituirEmojis() {
+      const elementos = document.querySelectorAll('.emoji-placeholder');
+      
+      elementos.forEach(elemento => {
+        const emojiCode = elemento.getAttribute('data-emoji');
+        if (emojiMap[emojiCode]) {
+          const imgTag = `<img src="${emojiMap[emojiCode]}" class="emoji-gif" alt="${emojiCode}">`;
+          elemento.outerHTML = imgTag;
+        }
+      });
+    }
+
+    // Efeito de neve no canvas
+    const canvas = document.getElementById("snow");
+    const ctx = canvas.getContext("2d");
+
+    let width, height;
+    let snowflakes = [];
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+
+    function createSnowflakes() {
+      snowflakes = [];
+      const count = 100;
+      
+      for (let i = 0; i < count; i++) {
+        snowflakes.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          radius: Math.random() * 4 + 1,
+          speed: Math.random() * 3 + 1,
+          opacity: Math.random() * 0.5 + 0.3
+        });
+      }
+    }
+
+    function drawSnowflakes() {
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      
+      for (let i = 0; i < snowflakes.length; i++) {
+        const flake = snowflakes[i];
+        
+        ctx.beginPath();
+        ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.globalAlpha = flake.opacity;
+        ctx.fill();
+        
+        flake.y += flake.speed;
+        
+        if (flake.y > height) {
+          flake.y = 0;
+          flake.x = Math.random() * width;
+        }
+      }
+      
+      requestAnimationFrame(drawSnowflakes);
+    }
+
+    // Inicialização
+    window.addEventListener('resize', () => {
+      resize();
+      createSnowflakes();
+    });
+
+    // Quando o documento estiver carregado
+    document.addEventListener('DOMContentLoaded', function() {
+      // Substituir emojis
+      substituirEmojis();
+      
+      // Configurar efeito de neve
+      resize();
+      createSnowflakes();
+      drawSnowflakes();
+      
+      // Adicionando alguns efeitos interativos aos cards
+      const cards = document.querySelectorAll('.method-card');
+      
+      cards.forEach((card, index) => {
+        // Adiciona um delay de animação para cada card
+        card.style.animationDelay = `${index * 0.2}s`;
+        
+        // Efeito de hover mais elaborado
+        card.addEventListener('mouseenter', () => {
+          card.style.transform = 'translateY(-10px) scale(1.02)';
+        });
+        
+        card.addEventListener('mouseleave', () => {
+          card.style.transform = 'translateY(0) scale(1)';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
