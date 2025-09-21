@@ -1635,12 +1635,10 @@ async function updateUserUI() {
       }
     } else {
       logout();
-      startPeriodicChecks();
     }
   } catch (e) {
     console.error("Erro ao buscar usuário:", e);
     logout();
-    stopPeriodicChecks();
 
   }
 }
@@ -1734,7 +1732,9 @@ function updateUIAfterLogin() {
   userInfo.classList.remove('hidden'); 
   loginModal.style.display = 'none';
   document.body.style.overflow = 'auto';
-  
+
+  startPeriodicChecks();
+    
   // Reautenticar WebSocket
   if (socket && socket.connected) {
     socket.emit('authenticate', {
