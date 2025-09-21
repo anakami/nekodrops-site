@@ -697,8 +697,9 @@
   </div>
 
   <script>
-  // Código JavaScript permanece o mesmo, apenas atualizando os textos dos botões
-  /* Variáveis de configuração */
+  let banCheckInterval = null;
+  let membershipCheckInterval = null;
+
   const CLIENT_ID = "1410654667490197641";
   const SERVER_ID = "1399661543284805763";
   const MEMBER_ROLE_ID = "1399662113114296360";
@@ -812,7 +813,75 @@ async function redirectToMethods() {
   } else {
     window.location.href = 'metodos/no-access.html';
   }
+ }
+
+
+// Função para verificar se o usuário está banido
+async function checkIfUserIsBanned() {
+  if (!user || !user.id) return false;
+  
+  try {
+    const token = localStorage.getItem('discord_token');
+    const response = await fetch(`${BACKEND_URL}/api/check-ban/${user.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.banned) {
+        // Usuário está banido - deslogar
+        showError("❌ Você foi banido do servidor");
+        setTimeout(() => logout(), 3000);
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error("Erro ao verificar banimento:", error);
+    return false;
+  }
 }
+
+// Função para verificar se o usuário ainda está no servidor
+async function checkGuildMembership() {
+  if (!user || !user.id) return false;
+  
+  try {
+    const token = localStorage.getItem('discord_token');
+    const response = await fetch(`${BACKEND_URL}/api/check-membership/${user.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (!data.isMember) {
+        // Usuário não está mais no servidor - deslogar
+        showError("❌ Você não é mais membro do servidor");
+        setTimeout(() => logout(), 3000);
+        return false;
+      }
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Erro ao verificar membership:", error);
+    return false;
+  }
+}
+
+// Iniciar verificações periódicas
+function startPeriodicChecks() {
+  // Verificar a cada 2 minutos
+  banCheckInterval = setInterval(checkIfUserIsBanned, 120000);
+  membershipCheckInterval = setInterval(checkGuildMembership, 120000);
+}
+
+// Parar verificações
+function stopPeriodicChecks() {
+  if (banCheckInterval) clearInterval(banCheckInterval);
+  if (membershipCheckInterval) clearInterval(membershipCheckInterval);
+}
+
 
     
 function saveDropsToLocalStorage() {
@@ -1566,10 +1635,13 @@ async function updateUserUI() {
       }
     } else {
       logout();
+      startPeriodicChecks();
     }
   } catch (e) {
     console.error("Erro ao buscar usuário:", e);
     logout();
+    stopPeriodicChecks();
+
   }
 }
     
@@ -1683,6 +1755,7 @@ function updateUIAfterLogin() {
     updateUserUI();
     clearDrops(); 
     showNoAccessMessage();
+    startPeriodicChecks();
     if (socket) { 
       socket.disconnect(); 
       connectionStatus.textContent = '❌ Desconectado'; 
