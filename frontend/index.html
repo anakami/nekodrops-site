@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>NEKO DROPS 🌸</title>
   
-  <!-- Meta tags para embed -->
   <meta property="og:title" content="NEKO DROPS 🌸">
   <meta property="og:description" content="Best methods and Drops 🩷">
   <meta property="og:image" content="https://i.imgur.com/inRRoT6.jpeg">
@@ -1445,43 +1444,53 @@ function processAuthResponse() {
     }
 }
 
-// Função nova para buscar informações do usuário
 async function fetchUserInfo(token) {
-    try {
-        const response = await fetch(`${BACKEND_URL}/api/user-info`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (response.ok) {
-            const userData = await response.json();
-            
-            // ✅ CORREÇÃO: Garantir que todos os campos existam
-            user = {
-                id: userData.userId || '',
-                username: userData.username || 'Usuário',
-                avatar: userData.avatar || null,
-                discriminator: userData.discriminator || '0000'
-            };
-            
-            userRoles = userData.roles || [];
-            
-            localStorage.setItem('discord_user', JSON.stringify(user));
-            localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-            
-            // Atualizar UI
-            updateUIAfterLogin();
-            loadDropsFromServer();
-            
-        } else {
-            throw new Error('Falha ao obter informações do usuário');
-        }
-    } catch (error) {
-        console.error('Erro ao buscar informações:', error);
-        showError("Erro ao carregar informações do usuário");
-        logout();
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/user-info`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    // 🔹 Novo: tratamento específico para usuários banidos
+    if (response.status === 403) {
+      const err = await response.json();
+      if (err.banned) {
+        showError("❌ Você foi banido do servidor");
+        setTimeout(() => {
+          logout();
+          window.location.href = 'banned.html';
+        }, 3000);
+        return; // não continua o login
+      }
     }
+
+    if (response.ok) {
+      const userData = await response.json();
+
+      user = {
+        id: userData.userId || '',
+        username: userData.username || 'Usuário',
+        avatar: userData.avatar || null,
+        discriminator: userData.discriminator || '0000'
+      };
+
+      userRoles = userData.roles || [];
+
+      localStorage.setItem('discord_user', JSON.stringify(user));
+      localStorage.setItem('discord_roles', JSON.stringify(userRoles));
+
+      updateUIAfterLogin();
+      loadDropsFromServer();
+    } else {
+      // outros erros genéricos
+      throw new Error('Falha ao obter informações do usuário');
+    }
+  } catch (error) {
+    console.error('Erro ao buscar informações:', error);
+    showError("Erro ao carregar informações do usuário");
+    logout();
+  }
 }
 
 // Sistema de segurança anti-hack
