@@ -38,6 +38,89 @@ const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 let dropsDatabase = [];
 let connectedClients = new Map();
 
+// Variável para cache de banimentos
+let bannedUsersCache = [];
+let lastCacheUpdate = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+
+// Função para buscar banimentos da API do Discord
+async function fetchBannedUsers() {
+  try {
+    console.log('🔍 Buscando lista de banimentos do Discord...');
+    const response = await fetch(`https://discord.com/api/guilds/${SERVER_ID}/bans`, {
+      headers: {
+        'Authorization': `Bot ${DISCORD_BOT_TOKEN}`
+      }
+    });
+    
+    if (response.ok) {
+      const bans = await response.json();
+      const bannedIds = bans.map(ban => ban.user.id);
+      console.log(`✅ ${bannedIds.length} usuários banidos encontrados`);
+      return bannedIds;
+    } else if (response.status === 403) {
+      console.error('❌ Permissão negada para ver banimentos. Verifique se o bot tem a permissão BAN_MEMBERS');
+      return [];
+    } else {
+      console.error('❌ Erro ao buscar banimentos:', response.status, response.statusText);
+      return [];
+    }
+  } catch (error) {
+    console.error('❌ Erro ao buscar banimentos:', error.message);
+    return [];
+  }
+}
+
+// Middleware para verificar e atualizar cache de banimentos
+async function updateBansCache() {
+  const now = Date.now();
+  if (now - lastCacheUpdate > CACHE_DURATION) {
+    console.log('🔄 Atualizando cache de banimentos...');
+    bannedUsersCache = await fetchBannedUsers();
+    lastCacheUpdate = now;
+    console.log(`✅ ${bannedUsersCache.length} usuários banidos em cache`);
+  }
+}
+
+// Função para verificar se um usuário está banido
+async function checkIfUserIsBanned(userId) {
+  try {
+    await updateBansCache(); // Atualiza cache se necessário
+    return bannedUsersCache.includes(userId);
+  } catch (error) {
+    console.error('❌ Erro ao verificar banimento:', error);
+    return false;
+  }
+}
+
+// Função para verificar se usuário está no servidor
+async function checkGuildMembership(userId) {
+  try {
+    const response = await fetch(`https://discord.com/api/guilds/${SERVER_ID}/members/${userId}`, {
+      headers: {
+        'Authorization': `Bot ${DISCORD_BOT_TOKEN}`
+      }
+    });
+    
+    return response.status === 200;
+  } catch (error) {
+    console.error('❌ Erro ao verificar membership:', error);
+    return false;
+  }
+}
+
+// Inicializar cache de banimentos ao iniciar o servidor
+async function initializeBansCache() {
+  try {
+    console.log('🔄 Inicializando cache de banimentos...');
+    bannedUsersCache = await fetchBannedUsers();
+    lastCacheUpdate = Date.now();
+    console.log(`✅ Cache de banimentos inicializado com ${bannedUsersCache.length} usuários`);
+  } catch (error) {
+    console.error('❌ Erro ao inicializar cache de banimentos:', error);
+  }
+}
+
 // WebSocket para atualização em tempo real
 io.on('connection', (socket) => {
   console.log('🔗 Cliente conectado via WebSocket:', socket.id);
@@ -56,6 +139,15 @@ io.on('connection', (socket) => {
         userInfo = userData;
       } else {
         throw new Error('Dados de autenticação inválidos');
+      }
+
+      // Verificar se usuário está banido
+      const isBanned = await checkIfUserIsBanned(userInfo.userId);
+      if (isBanned) {
+        console.log(`🚫 Usuário ${userInfo.username} (${userInfo.userId}) está banido - desconectando`);
+        socket.emit('user_banned', { userId: userInfo.userId });
+        socket.disconnect();
+        return;
       }
 
       connectedClients.set(socket.id, {
@@ -150,12 +242,14 @@ async function getUserInfoFromToken(token) {
 // Rota para verificar se um usuário está banido
 app.get('/api/check-ban/:userId', async (req, res) => {
   try {
+    await updateBansCache(); // Atualiza cache se necessário
+    
     const { userId } = req.params;
-    // Implemente a lógica para verificar se o usuário está banido
-    // Isso vai depender de como você gerencia os banimentos no Discord
-    const isBanned = await checkIfUserIsBanned(userId);
+    const isBanned = bannedUsersCache.includes(userId);
+    
     res.json({ banned: isBanned });
   } catch (error) {
+    console.error('❌ Erro ao verificar banimento:', error);
     res.status(500).json({ error: 'Erro ao verificar banimento' });
   }
 });
@@ -168,10 +262,21 @@ app.get('/api/check-membership/:userId', async (req, res) => {
     const isMember = await checkGuildMembership(userId);
     res.json({ isMember });
   } catch (error) {
+    console.error('❌ Erro ao verificar membership:', error);
     res.status(500).json({ error: 'Erro ao verificar membership' });
   }
 });
 
+// Rota para forçar atualização do cache (opcional)
+app.post('/api/refresh-bans', async (req, res) => {
+  try {
+    bannedUsersCache = await fetchBannedUsers();
+    lastCacheUpdate = Date.now();
+    res.json({ success: true, count: bannedUsersCache.length });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao atualizar banimentos' });
+  }
+});
 
 app.get('/api/user-methods-permissions', async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -220,6 +325,16 @@ app.get('/api/security/validate', async (req, res) => {
   try {
     const userInfo = await getUserInfoFromToken(token);
     
+    // Verificar se usuário está banido
+    const isBanned = await checkIfUserIsBanned(userInfo.userId);
+    if (isBanned) {
+      return res.status(403).json({ 
+        valid: false, 
+        reason: 'banned',
+        message: 'Usuário banido do servidor' 
+      });
+    }
+    
     res.json({
       valid: true,
       userId: userInfo.userId,
@@ -249,6 +364,13 @@ app.use('/api/drops', async (req, res, next) => {
       try {
         // Verificar rapidamente se o token ainda é válido
         const userInfo = await getUserInfoFromToken(token);
+        
+        // Verificar se usuário está banido
+        const isBanned = await checkIfUserIsBanned(userInfo.userId);
+        if (isBanned) {
+          return res.status(403).json({ error: 'Usuário banido' });
+        }
+        
         req.userInfo = userInfo;
       } catch (error) {
         // Token inválido, mas permitir acesso a drops públicos
@@ -258,7 +380,6 @@ app.use('/api/drops', async (req, res, next) => {
   }
   next();
 });
-
 
 // Rota para receber drops do bot
 app.post('/api/drops', async (req, res) => {
@@ -297,10 +418,9 @@ app.post('/api/drops', async (req, res) => {
 });
 
 // Rota para listar drops
-// Rota para listar drops
 app.get('/api/drops', async (req, res) => {
   try {
-    const { type } = req.query; // Removemos limit e offset pois o frontend cuida da paginação
+    const { type } = req.query;
     const authHeader = req.headers.authorization;
     
     let filteredDrops = dropsDatabase.filter(drop => drop.isActive !== false);
@@ -313,6 +433,13 @@ app.get('/api/drops', async (req, res) => {
       
       try {
         const userInfo = await getUserInfoFromToken(token);
+        
+        // Verificar se usuário está banido
+        const isBanned = await checkIfUserIsBanned(userInfo.userId);
+        if (isBanned) {
+          return res.status(403).json({ error: 'Usuário banido' });
+        }
+        
         const canSeeVip = userInfo.roles.includes(VIP_ROLE_ID) || userInfo.roles.includes(OWNER_ROLE_ID);
         
         // Filtrar drops conforme permissões
@@ -337,13 +464,11 @@ app.get('/api/drops', async (req, res) => {
     // Ordenar por data (mais recente primeiro)
     filteredDrops.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
     
-    // 🔥 MUDANÇA PRINCIPAL: Retornar TODAS as drops filtradas
-    // O frontend agora cuida da paginação localmente
     res.json({
       success: true,
-      drops: filteredDrops, // Retorna todas as drops em vez de paginar
+      drops: filteredDrops,
       total: filteredDrops.length,
-      hasMore: false // Não é mais necessário pois frontend cuida da paginação
+      hasMore: false
     });
     
   } catch (error) {
@@ -352,7 +477,6 @@ app.get('/api/drops', async (req, res) => {
   }
 });
 
-// No arquivo server.js, adicione esta rota:
 app.get('/api/ip-info', async (req, res) => {
   const { ip } = req.query;
   
@@ -361,7 +485,6 @@ app.get('/api/ip-info', async (req, res) => {
   }
   
   try {
-    // Usar axios ou node-fetch para fazer a requisição do lado do servidor
     const response = await fetch(`https://ipinfo.io/${ip}/json`);
     const data = await response.json();
     
@@ -549,6 +672,15 @@ app.get('/api/user-info', async (req, res) => {
     try {
         const userInfo = await getUserInfoFromToken(token);
         
+        // Verificar se usuário está banido
+        const isBanned = await checkIfUserIsBanned(userInfo.userId);
+        if (isBanned) {
+            return res.status(403).json({ 
+                error: 'Usuário banido do servidor',
+                banned: true 
+            });
+        }
+        
         res.json({
             success: true,
             userId: userInfo.userId,
@@ -579,6 +711,15 @@ app.get('/api/user-roles', async (req, res) => {
     try {
         const userInfo = await getUserInfoFromToken(token);
         
+        // Verificar se usuário está banido
+        const isBanned = await checkIfUserIsBanned(userInfo.userId);
+        if (isBanned) {
+            return res.status(403).json({ 
+                error: 'Usuário banido do servidor',
+                banned: true 
+            });
+        }
+        
         res.json({
             success: true,
             roles: userInfo.roles
@@ -597,6 +738,8 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString(),
         websocketClients: connectedClients.size,
         totalDrops: dropsDatabase.length,
+        bannedUsers: bannedUsersCache.length,
+        lastCacheUpdate: new Date(lastCacheUpdate).toISOString(),
         environment: {
             hasClientId: !!CLIENT_ID,
             hasClientSecret: !!CLIENT_SECRET,
@@ -619,7 +762,9 @@ app.get('/', (req, res) => {
             userRoles: '/api/user-roles',
             drops: '/api/drops',
             stats: '/api/stats',
-            health: '/health'
+            health: '/health',
+            checkBan: '/api/check-ban/:userId',
+            checkMembership: '/api/check-membership/:userId'
         }
     });
 });
@@ -635,10 +780,14 @@ app.use('*', (req, res) => {
     res.status(404).json({ error: 'Endpoint não encontrado' });
 });
 
-server.listen(PORT, () => {
+// Inicializar servidor
+server.listen(PORT, async () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
     console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
     console.log(`🔗 Redirect URI: ${REDIRECT_URI}`);
     console.log(`✅ Health check disponível em: http://localhost:${PORT}/health`);
     console.log(`📊 WebSocket pronto para conexões`);
+    
+    // Inicializar cache de banimentos
+    await initializeBansCache();
 });
