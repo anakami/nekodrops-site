@@ -1242,6 +1242,25 @@ function setupWebSocket() {
   }
 });
 
+ socket.on('user_banned', (data) => {
+  if (user && data.userId === user.id) {
+    showError("❌ Você foi banido do servidor");
+    setTimeout(() => {
+      logout();
+      window.location.href = 'banned.html';
+    }, 3000);
+  }
+});
+
+
+ socket.on('user_left', (data) => {
+  if (user && data.userId === user.id) {
+    showError("❌ Você saiu do servidor");
+    setTimeout(() => logout(), 3000);
+  }
+});
+
+  
   socket.on('auth_error', (err) => {
     console.warn('❌ Erro de autenticação WS:', err?.message || 'desconhecido');
     connectionStatus.textContent = '⚠️ Não autenticado';
@@ -1745,23 +1764,23 @@ function updateUIAfterLogin() {
 }
 
   function logout() {
-    localStorage.clear();
-    clearDropsFromLocalStorage(); // Limpa os drops do localStorage também
-    user = null; 
-    userRoles = [];
-    loginBtn.textContent = '🎮 Entrar com Discord';
-    userInfo.classList.add('hidden'); 
-    localStorage.removeItem('discord_token');
-    updateUserUI();
-    clearDrops(); 
-    showNoAccessMessage();
-    startPeriodicChecks();
-    if (socket) { 
-      socket.disconnect(); 
-      connectionStatus.textContent = '❌ Desconectado'; 
-      connectionStatus.classList.remove('connected'); 
-    }
+  stopPeriodicChecks();
+  localStorage.clear();
+  clearDropsFromLocalStorage();
+  user = null; 
+  userRoles = [];
+  loginBtn.textContent = '🎮 Entrar com Discord';
+  userInfo.classList.add('hidden'); 
+  localStorage.removeItem('discord_token');
+  updateUserUI();
+  clearDrops(); 
+  showNoAccessMessage();
+  if (socket) { 
+    socket.disconnect(); 
+    connectionStatus.textContent = '❌ Desconectado'; 
+    connectionStatus.classList.remove('connected'); 
   }
+}
 
   function showError(msg) {
     errorMessage.textContent = msg; 
