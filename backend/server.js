@@ -147,6 +147,32 @@ async function getUserInfoFromToken(token) {
   }
 }
 
+// Rota para verificar se um usuário está banido
+app.get('/api/check-ban/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // Implemente a lógica para verificar se o usuário está banido
+    // Isso vai depender de como você gerencia os banimentos no Discord
+    const isBanned = await checkIfUserIsBanned(userId);
+    res.json({ banned: isBanned });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao verificar banimento' });
+  }
+});
+
+// Rota para verificar status no servidor
+app.get('/api/check-membership/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // Verifica se o usuário ainda está no servidor
+    const isMember = await checkGuildMembership(userId);
+    res.json({ isMember });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao verificar membership' });
+  }
+});
+
+
 app.get('/api/user-methods-permissions', async (req, res) => {
   const authHeader = req.headers.authorization;
   
