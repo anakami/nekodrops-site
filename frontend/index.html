@@ -98,7 +98,9 @@
   <script>
   let banCheckInterval = null;
   let membershipCheckInterval = null;
+  let lastAuthAttempt = 0;
 
+  const AUTH_COOLDOWN = 5000;
   const CLIENT_ID = "1410654667490197641";
   const SERVER_ID = "1420183845646503988";
   const MEMBER_ROLE_ID = "1420541777076686968";
@@ -619,12 +621,20 @@ function createIPWithFlagElement(ip, countryInfo) {
 
   /* WebSocket */
 function setupWebSocket() {
-  socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
+  socket = io(BACKEND_URL, { 
+    transports: ['websocket', 'polling'],
+    reconnectionDelay: 5000, // Aumentar delay de reconexão
+    timeout: 10000
+  });
 
   socket.on('connect', () => {
     console.log('✅ WebSocket conectado');
     const token = localStorage.getItem('discord_token');
-    if (token) {
+    const now = Date.now();
+    
+    // Rate limiting para autenticação
+    if (token && (now - lastAuthAttempt > AUTH_COOLDOWN)) {
+      lastAuthAttempt = now;
       socket.emit('authenticate', { token });
     }
   });
