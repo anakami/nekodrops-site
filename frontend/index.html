@@ -1195,56 +1195,7 @@ function updateUIAfterLogin() {
     errorMessage.textContent = msg; 
     errorModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
-  }
-
-  /* UI: render */
-function renderDrops(filter = 'all') {
-    // Limpar renderização anterior imediatamente
-    clearDrops();
-    
-    if (!user || userRoles.length === 0) { 
-        showNoAccessMessage(); 
-        return; 
-    }
-
-    const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
-    
-    // 🔒 BLOQUEAR VIP SEM PERMISSÃO
-    if (filter === 'vip' && !canSeeVip) {
-        showNoVipAccessMessage();
-        return;
-    }
-    
-    // 🚀 RENDERIZAÇÃO EM LOTES - EVITA CRASH
-    let filtered = allDrops.filter(drop => {
-        if (drop.isVip && !canSeeVip) return false;
-        if (filter === 'normal') return !drop.isVip;
-        if (filter === 'vip') return drop.isVip;
-        return true;
-    });
-    
-    if (!filtered.length) {
-        showNoDropsMessage(filter);
-        return;
-    }
-    
-    // Mostrar loading para muitos itens VIP
-    if (filter === 'vip' && filtered.length > 15) {
-        dropsGrid.innerHTML = `
-            <div class="loading">
-                <div class="loading-spinner"></div>
-                <p>Carregando ${filtered.length} contas VIP...</p>
-            </div>
-        `;
-        
-        // Renderizar após delay para não travar
-        setTimeout(() => renderBatch(filtered), 50);
-    } else {
-        renderBatch(filtered);
-    }
-    
-    updateLoadMoreButton();
-}
+   }
 
 function renderDrops(filter = 'all') {
     clearDrops();
