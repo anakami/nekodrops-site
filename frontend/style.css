@@ -3,6 +3,7 @@
   padding: 0;
   box-sizing: border-box;
   font-family: 'Poppins', sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Variáveis CSS para reutilização */
@@ -10,9 +11,9 @@
   --primary-color: #ff78c4;
   --secondary-color: #ff4d8d;
   --accent-color: #ffd166;
-  --bg-dark: rgba(25, 25, 35, 0.8);
-  --bg-light: rgba(255, 120, 196, 0.2);
-  --border-color: rgba(255, 120, 196, 0.3);
+  --bg-dark: rgba(25, 25, 35, 0.9);
+  --bg-light: rgba(255, 120, 196, 0.15);
+  --border-color: rgba(255, 120, 196, 0.25);
   --text-light: rgba(255, 255, 255, 0.9);
 }
 
@@ -22,7 +23,6 @@ body {
   padding: 20px;
   position: relative;
   overflow-x: hidden;
-  /* Forçar aceleração GPU */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
 }
@@ -39,9 +39,7 @@ body::before {
     linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
     url('assets/pc.jpg') center/cover no-repeat fixed;
   z-index: -2;
-  /* Reduzir efeitos pesados */
   filter: blur(3px) brightness(0.85);
-  /* Otimizar para mobile */
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
@@ -51,7 +49,6 @@ body::before {
     background: 
       linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
       url('assets/mobile.jpg') center/cover no-repeat fixed;
-    /* Menos blur em mobile */
     filter: blur(2px) brightness(0.9);
   }
   
@@ -65,10 +62,8 @@ body::before {
   position: fixed;
   font-size: 20px;
   z-index: -1;
-  opacity: 0.25;
-  /* Animação mais leve */
+  opacity: 0.2;
   animation: float-optimized 8s infinite ease-in-out;
-  /* Evitar repaints */
   will-change: transform;
 }
 
@@ -77,7 +72,7 @@ body::before {
     transform: translateY(0) rotate(0deg); 
   }
   50% { 
-    transform: translateY(-15px) rotate(5deg); 
+    transform: translateY(-12px) rotate(3deg); 
   }
 }
 
@@ -92,13 +87,12 @@ body::before {
   font-size: 11px;
   background: #ff6b6b;
   color: white;
-  /* Sombra mais leve */
-  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 2px 6px rgba(255, 107, 107, 0.25);
 }
 
 .connection-status.connected {
   background: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(255, 120, 196, 0.3);
+  box-shadow: 0 2px 6px rgba(255, 120, 196, 0.25);
 }
 
 .container {
@@ -122,7 +116,7 @@ header {
   background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 1px 5px rgba(255, 120, 196, 0.2);
+  text-shadow: 0 1px 4px rgba(255, 120, 196, 0.15);
 }
 
 .auth-section {
@@ -162,12 +156,12 @@ header {
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
-  box-shadow: 0 3px 10px rgba(255, 120, 196, 0.3);
+  box-shadow: 0 3px 8px rgba(255, 120, 196, 0.25);
 }
 
 .login-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(255, 120, 196, 0.4);
+  box-shadow: 0 5px 12px rgba(255, 120, 196, 0.35);
 }
 
 .hidden {
@@ -200,40 +194,88 @@ header {
 
 .filter-btn:hover {
   transform: translateY(-2px);
-  background: rgba(255, 120, 196, 0.25);
+  background: rgba(255, 120, 196, 0.2);
 }
 
 .filter-btn.active {
   background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-  box-shadow: 0 3px 10px rgba(255, 120, 196, 0.3);
+  box-shadow: 0 3px 8px rgba(255, 120, 196, 0.25);
 }
 
-/* Grid otimizado */
+/* 🚀 GRID PRINCIPAL OTIMIZADO */
 .drops-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
+  gap: 18px;
+  contain: layout style paint;
 }
 
+/* 🎯 CARDS BÁSICOS (SEM AUTH/COOKIE) - MÁXIMO DESEMPENHO */
 .drop-card {
   background: var(--bg-dark);
-  border-radius: 15px;
-  padding: 20px;
+  border-radius: 14px;
+  padding: 18px;
   position: relative;
   overflow: hidden;
   border: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-  /* backdrop-filter pode ser pesado, usar com cuidado */
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  /* Otimizar transforms */
-  will-change: transform;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 .drop-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(255, 120, 196, 0.25);
-  border-color: rgba(255, 120, 196, 0.5);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(255, 120, 196, 0.15);
+  border-color: rgba(255, 120, 196, 0.4);
+}
+
+/* 🚀 CARDS COMPLEXOS (COM AUTH/COOKIE) - EFEITOS COMPLETOS */
+.drop-card.complex-card {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.35s ease;
+  border: 1.5px solid rgba(255, 120, 196, 0.3);
+}
+
+.drop-card.complex-card:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: 0 12px 30px rgba(255, 120, 196, 0.25);
+  border-color: rgba(255, 120, 196, 0.6);
+}
+
+/* 🎯 CONTEÚDO DE CARDS COMPLEXOS OTIMIZADO */
+.complex-card .account-credentials {
+  margin-bottom: 18px;
+  background: rgba(255, 120, 196, 0.05);
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 120, 196, 0.1);
+}
+
+.complex-card .credential-item {
+  background: rgba(255, 120, 196, 0.08);
+  border: 1px solid rgba(255, 120, 196, 0.15);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.complex-card .credential-item:hover {
+  background: rgba(255, 120, 196, 0.12);
+  transform: translateX(2px);
+}
+
+/* 🚀 CONTEÚDO DE CARDS SIMPLES - MÁXIMA PERFORMANCE */
+.drop-card:not(.complex-card) .account-credentials {
+  margin-bottom: 12px;
+}
+
+.drop-card:not(.complex-card) .credential-item {
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: rgba(255, 120, 196, 0.05);
+  border: 1px solid rgba(255, 120, 196, 0.08);
 }
 
 .drop-badge, .vip-badge {
@@ -249,31 +291,31 @@ header {
 
 .drop-badge {
   background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-  box-shadow: 0 2px 8px rgba(255, 120, 196, 0.3);
+  box-shadow: 0 2px 6px rgba(255, 120, 196, 0.25);
 }
 
 .vip-badge {
   background: linear-gradient(45deg, var(--accent-color), #ffb74d);
   color: #000;
-  box-shadow: 0 2px 8px rgba(255, 183, 77, 0.3);
+  box-shadow: 0 2px 6px rgba(255, 183, 77, 0.25);
 }
 
 .drop-image {
   width: 100%;
-  height: 180px;
+  height: 170px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 10px;
   margin-bottom: 15px;
   border: 1px solid var(--border-color);
-  /* Otimizar imagens */
   image-rendering: -webkit-optimize-contrast;
 }
 
 .drop-title {
-  font-size: 20px;
+  font-size: 19px;
   margin-bottom: 10px;
   color: var(--primary-color);
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .drop-price {
@@ -286,14 +328,26 @@ header {
 .drop-features {
   margin-bottom: 15px;
   padding-left: 0;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.drop-features::-webkit-scrollbar {
+  width: 4px;
+}
+
+.drop-features::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 2px;
 }
 
 .drop-features li {
-  margin-bottom: 6px;
-  padding-left: 20px;
+  margin-bottom: 5px;
+  padding-left: 18px;
   position: relative;
   list-style: none;
   font-size: 13px;
+  line-height: 1.4;
 }
 
 .drop-features li:before {
@@ -301,7 +355,7 @@ header {
   position: absolute;
   left: 0;
   color: var(--primary-color);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .account-credentials {
@@ -311,20 +365,22 @@ header {
 .credential-item {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   background: var(--bg-light);
-  padding: 10px;
-  border-radius: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   font-size: 13px;
+  transition: all 0.2s ease;
 }
 
 .credential-item span:first-child {
   font-weight: 600;
   margin-right: 6px;
-  min-width: 70px;
+  min-width: 65px;
   color: var(--primary-color);
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 .credential-value {
@@ -333,56 +389,65 @@ header {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-light);
+  font-size: 12px;
 }
 
 .ip-with-flag {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 .country-flag {
-  width: 18px;
-  height: 13px;
+  width: 16px;
+  height: 12px;
   border-radius: 2px;
   object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
 }
 
 .country-name {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-left: 3px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 2px;
+  flex-shrink: 0;
 }
 
 .copy-btn {
-  background: rgba(255, 120, 196, 0.25);
+  background: rgba(255, 120, 196, 0.2);
   border: none;
   color: #fff;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
   margin-left: 6px;
-  font-size: 11px;
+  font-size: 10px;
   transition: all 0.2s ease;
+  flex-shrink: 0;
+  min-width: 50px;
 }
 
 .copy-btn:hover {
-  background: rgba(255, 120, 196, 0.4);
+  background: rgba(255, 120, 196, 0.35);
   transform: scale(1.05);
 }
 
 .drop-description {
   margin-bottom: 15px;
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.4;
+  max-height: 80px;
+  overflow-y: auto;
 }
 
 .drop-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: 5px;
 }
 
 .claim-btn {
@@ -390,32 +455,39 @@ header {
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 25px;
+  border-radius: 20px;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
-  box-shadow: 0 3px 10px rgba(255, 120, 196, 0.3);
-  font-size: 14px;
+  box-shadow: 0 3px 8px rgba(255, 120, 196, 0.25);
+  font-size: 13px;
+  flex: 1;
+  margin-right: 10px;
 }
 
 .claim-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(255, 120, 196, 0.4);
+  box-shadow: 0 5px 12px rgba(255, 120, 196, 0.35);
 }
 
 .delete-btn {
-  background: rgba(255, 107, 107, 0.25);
+  background: rgba(255, 107, 107, 0.2);
   border: none;
   color: #ff6b6b;
   padding: 8px;
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 14px;
+  font-size: 13px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .delete-btn:hover {
-  background: rgba(255, 107, 107, 0.4);
+  background: rgba(255, 107, 107, 0.3);
   transform: scale(1.05);
 }
 
@@ -424,8 +496,9 @@ header {
   grid-column: 1 / -1;
   padding: 40px 30px;
   background: var(--bg-dark);
-  border-radius: 15px;
+  border-radius: 14px;
   border: 2px dashed var(--border-color);
+  backdrop-filter: blur(5px);
 }
 
 .no-drops h3 {
@@ -446,11 +519,11 @@ header {
 }
 
 .loading-spinner {
-  border: 2px solid rgba(255, 120, 196, 0.3);
+  border: 2px solid rgba(255, 120, 196, 0.2);
   border-radius: 50%;
   border-top: 2px solid var(--primary-color);
-  width: 40px;
-  height: 40px;
+  width: 35px;
+  height: 35px;
   animation: spin 1s linear infinite;
   margin: 0 auto 15px;
 }
@@ -467,29 +540,29 @@ header {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.9);
   z-index: 1000;
   justify-content: center;
   align-items: center;
-  /* backdrop-filter reduzido */
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .modal-content {
   background: var(--bg-dark);
-  padding: 30px;
-  border-radius: 15px;
-  max-width: 450px;
+  padding: 25px;
+  border-radius: 14px;
+  max-width: 420px;
   width: 90%;
   text-align: center;
   border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
 }
 
 .modal-title {
   margin-bottom: 15px;
   color: var(--primary-color);
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .modal-content p {
@@ -503,17 +576,17 @@ header {
   background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 25px;
+  padding: 11px 22px;
+  border-radius: 20px;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
-  box-shadow: 0 3px 10px rgba(255, 120, 196, 0.3);
+  box-shadow: 0 3px 8px rgba(255, 120, 196, 0.25);
 }
 
 .modal-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(255, 120, 196, 0.4);
+  box-shadow: 0 5px 12px rgba(255, 120, 196, 0.35);
 }
 
 .mobile-menu-btn {
@@ -521,7 +594,7 @@ header {
   background: none;
   border: none;
   color: white;
-  font-size: 24px;
+  font-size: 22px;
   cursor: pointer;
   transition: color 0.2s ease;
   padding: 5px;
@@ -535,9 +608,9 @@ header {
   text-align: center;
   margin-top: 40px;
   padding: 15px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.5);
   border-top: 1px solid var(--border-color);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .credential-item {
@@ -551,13 +624,13 @@ header {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
 .credential-item .copy-btn {
   flex-shrink: 0;
-  margin-left: 8px;
+  margin-left: 6px;
 }
 
 .load-more-container {
@@ -570,39 +643,39 @@ header {
   background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
   color: white;
   border: none;
-  padding: 12px 25px;
-  border-radius: 25px;
+  padding: 11px 22px;
+  border-radius: 20px;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
-  box-shadow: 0 3px 10px rgba(255, 120, 196, 0.3);
+  box-shadow: 0 3px 8px rgba(255, 120, 196, 0.25);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 13px;
 }
 
 .load-more-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(255, 120, 196, 0.4);
+  box-shadow: 0 5px 12px rgba(255, 120, 196, 0.35);
 }
 
 .load-more-btn:disabled {
-  background: rgba(255, 120, 196, 0.25);
+  background: rgba(255, 120, 196, 0.2);
   cursor: not-allowed;
   transform: none;
 }
 
 .load-more-btn:disabled:hover {
   transform: none;
-  box-shadow: 0 3px 10px rgba(255, 120, 196, 0.3);
+  box-shadow: 0 3px 8px rgba(255, 120, 196, 0.25);
 }
 
 /* Animações otimizadas */
 @keyframes bounce-optimized {
   0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-10px); }
-  60% { transform: translateY(-5px); }
+  40% { transform: translateY(-8px); }
+  60% { transform: translateY(-4px); }
 }
 
 .bounce {
@@ -636,15 +709,16 @@ header {
   .filters {
     flex-direction: column;
     position: absolute;
-    top: 70px;
-    right: 15px;
+    top: 65px;
+    right: 12px;
     background: var(--bg-dark);
-    padding: 15px;
-    border-radius: 12px;
+    padding: 12px;
+    border-radius: 10px;
     display: none;
     z-index: 100;
     border: 1px solid var(--border-color);
-    gap: 8px;
+    gap: 6px;
+    backdrop-filter: blur(10px);
   }
   
   .filters.active {
@@ -654,21 +728,27 @@ header {
   .credential-item {
     flex-direction: column;
     align-items: flex-start;
-    gap: 5px;
+    gap: 4px;
   }
 
   .copy-btn {
     margin-left: 0;
-    margin-top: 5px;
+    margin-top: 4px;
     align-self: flex-end;
   }
   
   .drop-card {
     padding: 15px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
   
   .logo {
-    font-size: 24px;
+    font-size: 22px;
+  }
+  
+  .drop-image {
+    height: 150px;
   }
 }
 
@@ -678,22 +758,30 @@ header {
     padding: 10px;
   }
   
-  .drop-card {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+  .kawaii-particle {
+    display: none;
   }
   
-  .kawaii-particle {
-    display: none; /* Remover partículas em dispositivos muito lentos */
+  .drop-card {
+    padding: 12px;
   }
-}
-
-/* Prevenir flashes em WebKit */
-* {
-  -webkit-tap-highlight-color: transparent;
+  
+  .drop-title {
+    font-size: 17px;
+  }
 }
 
 /* Otimizar scrolling */
 html {
   scroll-behavior: smooth;
+}
+
+/* Performance extras */
+.drops-grid {
+  transform: translateZ(0);
+}
+
+.drop-card {
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
 }
