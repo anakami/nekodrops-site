@@ -1,1541 +1,614 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>NEKO DROPS 🌸</title>
-  
-  
-  <meta property="og:title" content="NEKO DROPS 🌸">
-  <meta property="og:description" content="Best methods and Drops 🩷">
-  <meta property="og:image" content="https://i.imgur.com/inRRoT6.jpeg">
-  <meta property="og:url" content="https://i.imgur.com/inRRoT6.jpeg">
-  <meta property="og:type" content="website">
-  <meta name="theme-color" content="#FF69B4">
-  
-  
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="NEKO DROPS 🌸">
-  <meta name="twitter:description" content="Best methods and Drops 🩷">
-  <meta name="twitter:image" content="https://i.imgur.com/inRRoT6.jpeg">
-  
-
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌸</text></svg>">
-  
-  
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  
-  <link rel="stylesheet" href="./frontend/style.css">
-  
-  
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-</head>
-<body>
-  <!-- Partículas Kawaii -->
-  <div class="kawaii-particle" style="top: 10%; left: 5%;">🌸</div>
-  <div class="kawaii-particle" style="top: 20%; right: 8%;">🐱</div>
-  <div class="kawaii-particle" style="top: 40%; left: 8%;">✨</div>
-  <div class="kawaii-particle" style="top: 60%; right: 12%;">🦄</div>
-  <div class="kawaii-particle" style="top: 80%; left: 15%;">🌟</div>
-
-  <div id="connection-status" class="connection-status">❌ Desconectado</div>
-
-  <div class="container">
-    <header>
-      <div class="logo">NEKO <span>DROPS</span> 🐱</div>
-      <button class="mobile-menu-btn">☰</button>
-      <div class="auth-section">
-        <div id="user-info" class="user-info hidden">
-          <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
-          <span id="username"></span>
-        </div>
-        <button id="login-btn" class="login-btn">🎮 Entrar com Discord</button>
-      </div>
-    </header>
-
-    <div class="filters">
-      <button class="filter-btn active" data-filter="all">🌸 All Accs</button>
-      <button class="filter-btn" data-filter="normal">😼 Normal Acc</button>
-      <button class="filter-btn" data-filter="vip">✨ VIP Acc</button>
-      <button class="filter-btn" data-filter="methods">🥞 Métodos</button>
-    </div>
-
-    <div id="drops-container">
-      <div class="drops-grid" id="drops-grid">
-        <div class="loading"><div class="loading-spinner"></div></div>
-      </div>
-    </div>
-
-    <div id="load-more-container" class="load-more-container hidden">
-      <button id="load-more-btn" class="load-more-btn">
-          <i class="fas fa-chevron-down"></i>🍭 Ver Mais
-      </button>
-     </div>
-    
-    <div class="footer">
-      <p>neko drops © by Anna 🌸</p>
-    </div>
-  </div>
-
-  <div id="login-modal" class="modal">
-    <div class="modal-content">
-      <h2 class="modal-title">🎮 Entrar com Discord</h2>
-      <p>Para acessar as contas fofinhas, você precisa fazer login com sua conta do Discord e ser membro do nosso servidor! 🐾</p>
-      <button id="modal-login-btn" class="modal-btn">✨ Continuar com Discord</button>
-    </div>
-  </div>
-
-  <div id="error-modal" class="modal">
-    <div class="modal-content">
-      <h2 class="modal-title">😿 Erro de Acesso</h2>
-      <p id="error-message">Você precisa ser membro do servidor para acessar as contas fofinhas!</p>
-      <button class="modal-btn" id="error-close-btn">Fechar</button>
-    </div>
-  </div>
-
-  <script>
-  let banCheckInterval = null;
-  let membershipCheckInterval = null;
-
-  const CLIENT_ID = "1410654667490197641";
-  const SERVER_ID = "1420183845646503988";
-  const MEMBER_ROLE_ID = "1420541777076686968";
-  const VIP_ROLE_ID = "1420540428792631336";
-  const OWNER_ROLE_ID = "1420536814422327541";
-  const BOOSTER_ROLE_ID = "1422261539938898000";
-  const BACKEND_URL = 'https://nekodrops-backend.onrender.com';
-
-  /* Elementos */
-  const loginBtn = document.getElementById('login-btn');
-  const userInfo = document.getElementById('user-info');
-  const userAvatar = document.getElementById('user-avatar');
-  const username = document.getElementById('username');
-  const dropsGrid = document.getElementById('drops-grid');
-  const loginModal = document.getElementById('login-modal');
-  const errorModal = document.getElementById('error-modal');
-  const errorMessage = document.getElementById('error-message');
-  const errorCloseBtn = document.getElementById('error-close-btn');
-  const modalLoginBtn = document.getElementById('modal-login-btn');
-  const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
-  const filters = document.querySelector('.filters');
-  const connectionStatus = document.getElementById('connection-status');
-// Variáveis para paginação
-  const DROPS_PER_PAGE = 50;
-  let allDrops = []; // Todas as drops disponíveis
-  let displayedDrops = []; // Drops atualmente exibidas
-  let currentPage = 1;
-    
-  let user = null, userRoles = [], drops = [], socket = null;
-  let currentFilter = 'all';
-
-  /* Helper: limpa texto e normaliza "N/A" */
-  function cleanDiscordText(text) {
-    if (text === undefined || text === null) return "";
-    const s = String(text).replace(/```/g, "").trim();
-    if (!s) return "";
-    if (s.toLowerCase() === 'n/a') return "";
-    return s;
-  }
-
-function extractIPFromLink(text) {
-  if (!text) return "";
-  
-  console.log('📋 Texto original para extrair IP:', text);
-  
-  // 1. Primeiro tenta encontrar IPs em formatos markdown: [IP](link)
-  const markdownMatch = text.match(/\[([\d\.]+)\]\([^)]+\)/);
-  if (markdownMatch && markdownMatch[1]) {
-    console.log('✅ IP encontrado em markdown:', markdownMatch[1]);
-    return markdownMatch[1];
-  }
-  
-  // 2. Tenta encontrar IPs em links: IP: 181.119.67.38
-  const ipWithLabel = text.match(/(?:IP|ip)[:\s]*([\d\.]{7,15})/i);
-  if (ipWithLabel && ipWithLabel[1]) {
-    console.log('✅ IP encontrado com label:', ipWithLabel[1]);
-    return ipWithLabel[1];
-  }
-  
-  // 3. Tenta encontrar IPs soltos no texto
-  const ipRegex = /(\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b)/;
-  const ipMatch = text.match(ipRegex);
-  if (ipMatch && ipMatch[1]) {
-    console.log('✅ IP encontrado com regex:', ipMatch[1]);
-    return ipMatch[1];
-  }
-  
-  // 4. Tenta encontrar em formatos de lista: • IP: 181.119.67.38
-  const listMatch = text.match(/[•\-*]\s*(?:IP|ip)[:\s]*([\d\.]{7,15})/i);
-  if (listMatch && listMatch[1]) {
-    console.log('✅ IP encontrado em lista:', listMatch[1]);
-    return listMatch[1];
-  }
-  
-  // 5. Tenta encontrar em formatos com emojis: 🌐 181.119.67.38
-  const emojiMatch = text.match(/[🌐🖥️💻]\s*([\d\.]{7,15})/);
-  if (emojiMatch && emojiMatch[1]) {
-    console.log('✅ IP encontrado com emoji:', emojiMatch[1]);
-    return emojiMatch[1];
-  }
-  
-  console.log('❌ Nenhum IP encontrado no texto');
-  return text;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
 }
 
-async function checkMethodsPermissions() {
-  const token = localStorage.getItem('discord_token');
-  if (!token) return null;
-  
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/user-methods-permissions`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data.success ? data.permissions : null;
-    }
-  } catch (error) {
-    console.error('Erro ao verificar permissões:', error);
-  }
-  return null;
+body {
+  color: #fff;
+  min-height: 100vh;
+  padding: 20px;
+  position: relative;
+  overflow-x: hidden;
 }
 
-// Função para redirecionar para métodos
-async function redirectToMethods() {
-  const permissions = await checkMethodsPermissions();
-  
-  if (permissions && permissions.canSeeMethods) {
-    window.location.href = 'metodos/booster.html';
-  } else {
-    window.location.href = 'metodos/no-access.html';
-  }
- }
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
+              url('assets/pc.jpg') no-repeat center center fixed;
+  background-size: cover;
+  z-index: -2;
+  filter: blur(4px) brightness(0.8);
+}
 
-
-// Função para verificar se o usuário está banido
-async function checkIfUserIsBanned() {
-  if (!user || !user.id) return false;
-  
-  try {
-    const token = localStorage.getItem('discord_token');
-    const response = await fetch(`${BACKEND_URL}/api/check-ban/${user.id}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.banned) {
-        // Usuário está banido - deslogar
-        showError("❌ Você foi banido do servidor");
-        setTimeout(() => logout(), 3000);
-        return true;
-      }
-    }
-    return false;
-  } catch (error) {
-    console.error("Erro ao verificar banimento:", error);
-    return false;
+@media (max-width: 768px) {
+  body::before {
+    background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
+                url('assets/mobile.jpg') no-repeat center center fixed;
+    background-size: cover;
   }
 }
 
-// Função para verificar se o usuário ainda está no servidor
-async function checkGuildMembership() {
-  if (!user || !user.id) return false;
-  
-  try {
-    const token = localStorage.getItem('discord_token');
-    const response = await fetch(`${BACKEND_URL}/api/check-membership/${user.id}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (!data.isMember) {
-        // Usuário não está mais no servidor - deslogar
-        showError("❌ Você não é mais membro do servidor");
-        setTimeout(() => logout(), 3000);
-        return false;
-      }
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error("Erro ao verificar membership:", error);
-    return false;
-  }
+.kawaii-particle {
+  position: fixed;
+  font-size: 24px;
+  z-index: -1;
+  opacity: 0.3;
+  animation: float 6s infinite ease-in-out;
 }
 
-// Iniciar verificações periódicas
-function startPeriodicChecks() {
-  // Verificar a cada 2 minutos
-  banCheckInterval = setInterval(checkIfUserIsBanned, 120000);
-  membershipCheckInterval = setInterval(checkGuildMembership, 120000);
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(10deg); }
 }
 
-// Parar verificações
-function stopPeriodicChecks() {
-  if (banCheckInterval) clearInterval(banCheckInterval);
-  if (membershipCheckInterval) clearInterval(membershipCheckInterval);
+.connection-status {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  z-index: 1000;
+  font-size: 12px;
+  background: #ff6b6b;
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
 }
 
-
-    
-function saveDropsToLocalStorage() {
-  try {
-    const dataToSave = {
-      allDrops: allDrops,
-      timestamp: Date.now(),
-      version: 'v2' // Adiciona versão para futuras migrações
-    };
-    localStorage.setItem('nekodrops_data', JSON.stringify(dataToSave));
-  } catch (e) {
-    console.error('Erro ao salvar drops no localStorage:', e);
-  }
+.connection-status.connected {
+  background: #ff78c4;
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
 }
 
-function loadDropsFromLocalStorage() {
-  try {
-    const savedData = localStorage.getItem('nekodrops_data');
-    if (!savedData) return [];
-    
-    const parsedData = JSON.parse(savedData);
-    
-    // ✅ CORREÇÃO: Verificar ambas as possibilidades (drops e allDrops)
-    let dropsData = [];
-    
-    if (parsedData.version === 'v2') {
-      const age = Date.now() - parsedData.timestamp;
-      if (age < 24 * 60 * 60 * 1000) {
-        // Tenta carregar de 'drops' primeiro, depois de 'allDrops'
-        dropsData = parsedData.drops || parsedData.allDrops || [];
-      }
-    } else {
-      // Estrutura antiga
-      const age = Date.now() - parseInt(localStorage.getItem('nekodrops_timestamp') || '0');
-      if (age < 24 * 60 * 60 * 1000) {
-        dropsData = JSON.parse(savedData) || [];
-      }
-    }
-    
-    return dropsData;
-  } catch (e) {
-    console.error('Erro ao carregar drops do localStorage:', e);
-    return [];
-  }
-}
-    
-function clearDropsFromLocalStorage() {
-  try {
-    localStorage.removeItem('nekodrops_data');
-    localStorage.removeItem('nekodrops_drops');
-    localStorage.removeItem('nekodrops_timestamp');
-  } catch (e) {
-    console.error('Erro ao limpar drops do localStorage:', e);
-  }
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-// Função para migrar dados antigos (executar uma vez)
-function migrateOldStorage() {
-  try {
-    const oldDrops = localStorage.getItem('nekodrops_drops');
-    const oldTimestamp = localStorage.getItem('nekodrops_timestamp');
-    
-    if (oldDrops && !localStorage.getItem('nekodrops_data')) {
-      const dataToSave = {
-        drops: JSON.parse(oldDrops),
-        timestamp: parseInt(oldTimestamp || Date.now().toString()),
-        version: 'v2'
-      };
-      localStorage.setItem('nekodrops_data', JSON.stringify(dataToSave));
-    }
-  } catch (e) {
-    console.error('Erro na migração do storage:', e);
-  }
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  margin-bottom: 30px;
+  border-bottom: 2px solid rgba(255, 120, 196, 0.3);
 }
 
-async function syncWithServer() {
-  try {
-    const token = localStorage.getItem('discord_token');
-    if (!token) return;
-    
-    const response = await fetch(`${BACKEND_URL}/api/drops`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.success) {
-        // Atualizar apenas se houver novas drops
-        if (data.drops.length !== allDrops.length) {
-          allDrops = data.drops;
-          saveDropsToLocalStorage();
-          renderDrops(currentFilter);
-          console.log('🔄 Drops sincronizadas com o servidor');
-        }
-      }
-    }
-  } catch (error) {
-    console.log('⚠️ Erro na sincronização:', error);
-  }
+.logo {
+  font-size: 32px;
+  font-weight: 800;
+  background: linear-gradient(45deg, #ff78c4, #ff4d8d, #ff3366);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 2px 10px rgba(255, 120, 196, 0.3);
 }
 
-// Sincronizar a cada 5 minutos
-setInterval(syncWithServer, 5 * 60 * 1000);
-
-    
-// Função para gerenciar a paginação
-function setupPagination() {
-  const loadMoreContainer = document.getElementById('load-more-container');
-  const loadMoreBtn = document.getElementById('load-more-btn');
-  
-  if (!loadMoreContainer || !loadMoreBtn) return;
-  
-  loadMoreBtn.addEventListener('click', loadMoreDrops);
+.logo span {
+  background: linear-gradient(45deg, #ff3366, #ff0040, #ff0066);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-// Função para carregar mais drops
-function loadMoreDrops() {
-  currentPage++;
-  renderDrops(currentFilter);
+.auth-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
-// Função para verificar se há mais drops para carregar
-function hasMoreDrops() {
-  const startIndex = (currentPage - 1) * DROPS_PER_PAGE;
-  return startIndex + DROPS_PER_PAGE < allDrops.length;
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 120, 196, 0.2);
+  padding: 8px 15px;
+  border-radius: 50px;
+  border: 2px solid rgba(255, 120, 196, 0.3);
 }
 
-// Função para atualizar a visibilidade do botão "Ver Mais"
-function updateLoadMoreButton() {
-  const loadMoreContainer = document.getElementById('load-more-container');
-  const loadMoreBtn = document.getElementById('load-more-btn');
-  
-  if (!loadMoreContainer || !loadMoreBtn) return;
-  
-  if (hasMoreDrops()) {
-    loadMoreContainer.classList.remove('hidden');
-    loadMoreBtn.disabled = false;
-  } else {
-    loadMoreContainer.classList.add('hidden');
-  }
-    }
-    
-
-  /* Delegação: copiar valores */
-  function setupCopyButtons() {
-    document.addEventListener('click', e => {
-      if (e.target.classList.contains('copy-btn')) {
-        const value = e.target.getAttribute('data-value') || '';
-        if (value) {
-          navigator.clipboard.writeText(value).then(() => {
-            const originalText = e.target.textContent;
-            e.target.textContent = '✨ Copiado!';
-            setTimeout(() => {
-              e.target.textContent = originalText;
-            }, 2000);
-          });
-        }
-      }
-    });
-  }
-
-// function ip
-    
-const countryCache = new Map();
-
-function isValidIP(ip) {
-  if (!ip || typeof ip !== 'string') return false;
-  
-  const cleanedIp = ip.trim();
-  if (cleanedIp === 'N/A' || cleanedIp === '' || cleanedIp === 'undefined') return false;
-  
-  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
-  if (!ipv4Pattern.test(cleanedIp)) return false;
-  
-  const parts = cleanedIp.split('.');
-  return parts.every(part => {
-    const num = parseInt(part, 10);
-    return !isNaN(num) && num >= 0 && num <= 255;
-  });
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #ff78c4;
+  transition: all 0.3s ease;
 }
 
-async function getCountryFromIP(ip) {
-  // Verificar se é um IP válido
-  if (!isValidIP(ip)) {
-    const invalidIP = {
-      code: 'invalid',
-      name: 'IP inválido',
-      flag: null
-    };
-    countryCache.set(ip, invalidIP);
-    return invalidIP;
-  }
-  
-  // Verificar cache
-  if (countryCache.has(ip)) {
-    return countryCache.get(ip);
-  }
-
-  try {
-    console.log('🌍 Buscando país para IP:', ip);
-    
-    // ✅ NOVA API: ipinfo.io (mais confiável e com free tier)
-    // ✅ ALTERNATIVA: ipapi.com (também boa)
-    const apis = [
-      `https://ipinfo.io/${ip}/json?token=test`, // Sem token, funciona para poucas requisições
-      `https://ipapi.co/${ip}/json/`,
-      `https://json.geoiplookup.io/${ip}`
-    ];
-    
-    let countryInfo = null;
-    
-    // Tentar cada API até uma funcionar
-    for (const apiUrl of apis) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        
-        const response = await fetch(apiUrl, {
-          signal: controller.signal,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json'
-          }
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Processar resposta baseado na API
-          if (data.country) {
-            // ipinfo.io format
-            countryInfo = {
-              code: data.country.toLowerCase(),
-              name: data.country_name || data.country,
-              flag: `https://flagcdn.com/w40/${data.country.toLowerCase()}.png`,
-              country: data.country_name || data.country,
-              city: data.city,
-              region: data.region
-            };
-          } else if (data.country_code) {
-            // ipapi.co format
-            countryInfo = {
-              code: data.country_code.toLowerCase(),
-              name: data.country_name || data.country,
-              flag: `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png`,
-              country: data.country_name || data.country,
-              city: data.city,
-              region: data.region
-            };
-          } else if (data.country_code) {
-            // geoiplookup format
-            countryInfo = {
-              code: data.country_code.toLowerCase(),
-              name: data.country_name,
-              flag: `https://flagcdn.com/w40/${data.country_code.toLowerCase()}.png`,
-              country: data.country_name,
-              city: data.city,
-              region: data.region
-            };
-          }
-          
-          if (countryInfo) break; // Se encontrou, para o loop
-        }
-      } catch (error) {
-        console.log(`❌ API ${apiUrl} falhou:`, error.message);
-        continue; // Tenta a próxima API
-      }
-    }
-    
-    if (!countryInfo) {
-      throw new Error('Todas as APIs falharam');
-    }
-    
-    console.log('✅ País encontrado:', countryInfo.name, 'para IP:', ip);
-    
-    // Salvar no cache
-    countryCache.set(ip, countryInfo);
-    
-    return countryInfo;
-    
-  } catch (error) {
-    console.log('❌ Erro ao buscar país do IP:', ip, error.message);
-    
-    // Fallback: usar API local via backend
-    try {
-      console.log('🔄 Tentando via backend...');
-      const response = await fetch(`${BACKEND_URL}/api/ip-info?ip=${ip}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          countryCache.set(ip, data.countryInfo);
-          return data.countryInfo;
-        }
-      }
-    } catch (backendError) {
-      console.log('❌ Backend também falhou:', backendError.message);
-    }
-    
-    // Fallback final
-    const fallback = {
-      code: 'unknown',
-      name: 'Desconhecido',
-      flag: null
-    };
-    
-    countryCache.set(ip, fallback);
-    return fallback;
-  }
+.user-avatar:hover {
+  transform: scale(1.1) rotate(5deg);
 }
 
-// Função para forçar atualização de um IP específico
-async function refreshIPInfo(ip) {
-  countryCache.delete(ip);
-  return await getCountryFromIP(ip);
+.login-btn {
+  background: linear-gradient(45deg, #ff78c4, #ff4d8d);
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
 }
 
-/* Função para criar elemento de IP com bandeira */
-function createIPWithFlagElement(ip, countryInfo) {
-  const container = document.createElement('div');
-  container.className = 'ip-with-flag';
-  
-  container.innerHTML = `
-    <span class="credential-value">${ip}</span>
-    ${countryInfo.flag ? `
-      <img src="${countryInfo.flag}" alt="${countryInfo.name}" class="country-flag" 
-           onerror="this.style.display='none'">
-      <span class="country-name">${countryInfo.name}</span>
-    ` : ''}
-  `;
-  
-  return container;
+.login-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(255, 120, 196, 0.6);
 }
 
-
-  /* WebSocket */
-function setupWebSocket() {
-  socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
-
-  socket.on('connect', () => {
-    console.log('✅ WebSocket conectado');
-    const token = localStorage.getItem('discord_token');
-    if (token) {
-      socket.emit('authenticate', { token });
-    }
-  });
-
-  // Adicione esta função para atualizar as roles quando o WebSocket se conectar
-  socket.on('authenticated', (data) => {
-  connectionStatus.textContent = '✨ Conectado';
-  connectionStatus.classList.add('connected');
-  
-  // ✅ CORREÇÃO: Atualizar userRoles se vierem do servidor
-  if (data && data.roles) {
-    userRoles = data.roles;
-    console.log('🔄 Roles atualizadas via WebSocket:', userRoles);
-  }
-});
-
- socket.on('user_banned', (data) => {
-  if (user && data.userId === user.id) {
-    showError("❌ Você foi banido do servidor");
-    setTimeout(() => {
-      logout();
-      window.location.href = 'banned.html';
-    }, 3000);
-  }
-});
-
-
- socket.on('user_left', (data) => {
-  if (user && data.userId === user.id) {
-    showError("❌ Você saiu do servidor");
-    setTimeout(() => logout(), 3000);
-  }
-});
-
-  
-  socket.on('auth_error', (err) => {
-    console.warn('❌ Erro de autenticação WS:', err?.message || 'desconhecido');
-    connectionStatus.textContent = '⚠️ Não autenticado';
-    connectionStatus.classList.remove('connected');
-  });
-
-  socket.on('disconnect', () => {
-    connectionStatus.textContent = '❌ Desconectado';
-    connectionStatus.classList.remove('connected');
-  });
-
-  socket.on('new-drop', dropData => {
-  // ✅ CORREÇÃO: Verificar permissões com dados atuais do usuário
-  const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
-  const canSee = !dropData.isVip || canSeeVip;
-  
-  if (canSee) {
-    allDrops.unshift(dropData);
-    saveDropsToLocalStorage();
-    renderDrops(currentFilter);
-    console.log('🎉 Novo drop recebido e exibido');
-  } else {
-    console.log('🔒 Drop VIP bloqueado - usuário sem permissão');
-  }
-});
-
-  socket.on('drop-deleted', id => { 
-    allDrops = allDrops.filter(d => d.id !== id); 
-    saveDropsToLocalStorage();
-    renderDrops(currentFilter); 
-  });
-}
-  /* Carrega drops do servidor */
-async function loadDropsFromServer() {
-  try {
-    const token = localStorage.getItem('discord_token');
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    
-    const res = await fetch(`${BACKEND_URL}/api/drops`, { headers });
-    const data = await res.json();
-    
-    if (data.success) {
-      allDrops = data.drops; // ✅ CORREÇÃO: Usar data.drops em vez de data.allDrops
-      currentPage = 1;
-      saveDropsToLocalStorage();
-      console.log('📥 Drops carregadas do servidor:', allDrops.length);
-    } else {
-      console.error('Erro ao carregar drops do servidor:', data.error);
-    }
-  } catch (e) {
-    console.error('Erro ao carregar drops do servidor:', e);
-  }
-  renderDrops(currentFilter);
-}
-  /* Event listeners básicos (login modal, login button) */
-  function setupEventListeners() {
-    if (loginBtn) {
-      loginBtn.addEventListener('click', () => {
-        if (user) logout(); else {
-          loginModal.style.display = 'flex';
-          document.body.style.overflow = 'hidden';
-        }
-      });
-    }
-    if (modalLoginBtn) {
-      modalLoginBtn.addEventListener('click', e => { e.preventDefault(); loginWithDiscord(); });
-    }
-  }
-
-  function setupModalClosing() {
-    document.addEventListener('click', e => {
-      if (e.target === loginModal || e.target === errorModal) {
-        loginModal.style.display = 'none';
-        errorModal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-      }
-    });
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        loginModal.style.display = 'none';
-        errorModal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-      }
-    });
-    if (errorCloseBtn) errorCloseBtn.addEventListener('click', () => {
-      errorModal.style.display = 'none';
-      document.body.style.overflow = 'auto';
-    });
-  }
-
-  function setupMobileMenu() {
-    if (!mobileMenuBtn || !filters) return;
-    mobileMenuBtn.addEventListener('click', e => {
-      e.stopPropagation(); 
-      filters.classList.toggle('active');
-    });
-    document.addEventListener('click', e => {
-      if (!e.target.closest('.filters') && !e.target.closest('.mobile-menu-btn')) {
-        filters.classList.remove('active');
-      }
-    });
-    window.addEventListener('resize', () => {
-      if (window.innerWidth > 768) filters.classList.remove('active');
-    });
-  }
-
-  function checkAuth() {
-    const token = localStorage.getItem('discord_token');
-    const userData = localStorage.getItem('discord_user');
-    const rolesData = localStorage.getItem('discord_roles');
-
-    if (token && userData) {
-        user = JSON.parse(userData);
-        if (rolesData) userRoles = JSON.parse(rolesData);
-        
-        if (userRoles.length > 0) { 
-            updateUIAfterLogin(); 
-            loadDropsFromServer();
-        } else {
-            // Verificar cargos se não tiver
-            checkUserRoles(token);
-        }
-    } else {
-        showNoAccessMessage();
-    }
-}
-// Função para verificar cargos
-async function checkUserRoles(token) {
-    try {
-        const response = await fetch(`${BACKEND_URL}/api/user-roles`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            userRoles = data.roles || [];
-            localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-            updateUIAfterLogin();
-            loadDropsFromServer();
-        }
-    } catch (error) {
-        console.error("Erro ao verificar roles:", error);
-    }
-}
-  
-/* Auth flow (simplificado e corrigido) */
-function loginWithDiscord() {
-  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-    // iOS - usa redirecionamento direto
-    window.location.href = `${BACKEND_URL}/auth/discord`;
-  } else {
-    // Outros dispositivos - usa popup
-    const authWindow = window.open(
-      `${BACKEND_URL}/auth/discord`,
-      'DiscordLogin',
-      'width=600,height=700'
-    );
-  }
+.hidden {
+  display: none;
 }
 
-function processAuthResponse() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const error = urlParams.get('error');
-
-    if (error) {
-        showError("Erro no login: " + error);
-        return;
-    }
-
-    if (token) {
-        // Salvar token
-        localStorage.setItem('discord_token', token);
-        
-        // Limpar URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // Buscar informações do usuário
-        fetchUserInfo(token);
-    }
+.filters {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
 }
 
-async function fetchUserInfo(token) {
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/user-info`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    // 🔹 Novo: tratamento específico para usuários banidos
-    if (response.status === 403) {
-      const err = await response.json();
-      if (err.banned) {
-        showError("❌ Você foi banido do servidor");
-        setTimeout(() => {
-          logout();
-          window.location.href = 'banned.html';
-        }, 3000);
-        return; // não continua o login
-      }
-    }
-
-    if (response.ok) {
-      const userData = await response.json();
-
-      user = {
-        id: userData.userId || '',
-        username: userData.username || 'Usuário',
-        avatar: userData.avatar || null,
-        discriminator: userData.discriminator || '0000'
-      };
-
-      userRoles = userData.roles || [];
-
-      localStorage.setItem('discord_user', JSON.stringify(user));
-      localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-
-      updateUIAfterLogin();
-      loadDropsFromServer();
-    } else {
-      // outros erros genéricos
-      throw new Error('Falha ao obter informações do usuário');
-    }
-  } catch (error) {
-    console.error('Erro ao buscar informações:', error);
-    showError("Erro ao carregar informações do usuário");
-    logout();
-  }
+.filter-btn {
+  background: rgba(255, 120, 196, 0.2);
+  border: 2px solid rgba(255, 120, 196, 0.3);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-// Sistema de segurança anti-hack
-let securityCheckInterval = null;
-
-function initSecuritySystem() {
-  // Verificação periódica de segurança
-  securityCheckInterval = setInterval(() => {
-    checkUserAuthorization();
-    validateLocalStorage();
-  }, 30000); // A cada 30 segundos
-  
-  // Monitorar tentativas de acesso ao localStorage
-  monitorLocalStorageAccess();
-  
-  console.log('🔒 Sistema de segurança ativado');
+.filter-btn:hover {
+  transform: translateY(-3px);
+  background: rgba(255, 120, 196, 0.3);
 }
 
-function checkUserAuthorization() {
-  const token = localStorage.getItem('discord_token');
-  const userData = localStorage.getItem('discord_user');
-  
-  if (!token || !userData) {
-    // Usuário não logado - limpar dados sensíveis
-    clearSensitiveData();
-    return;
-  }
-  
-  // Verificar se o usuário ainda tem permissão
-  verifyUserPermissions(token).catch(() => {
-    clearSensitiveData();
-  });
+.filter-btn.active {
+  background: linear-gradient(45deg, #ff78c4, #ff4d8d);
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
 }
 
-async function verifyUserPermissions(token) {
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/user-roles`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!response.ok) throw new Error('Token inválido');
-    
-    const data = await response.json();
-    const userRoles = data.roles || [];
-    
-    // Se não for mais VIP, limpar dados VIP
-    const isVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
-    if (!isVip) {
-      clearVipData();
-    }
-  } catch (error) {
-    throw error;
-  }
+.drops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 25px;
 }
 
-function clearSensitiveData() {
-  // Limpar apenas dados sensíveis, mantendo drops normais
-  const savedData = localStorage.getItem('nekodrops_data');
-  if (savedData) {
-    try {
-      const parsedData = JSON.parse(savedData);
-      // Manter apenas drops não-VIP
-      if (parsedData.drops && Array.isArray(parsedData.drops)) {
-        parsedData.drops = parsedData.drops.filter(drop => !drop.isVip);
-        localStorage.setItem('nekodrops_data', JSON.stringify(parsedData));
-      }
-    } catch (e) {
-      console.error('Erro ao limpar dados sensíveis:', e);
-    }
-  }
-  
-  // Forçar re-render para remover VIPs da interface
-  if (currentFilter === 'vip' || currentFilter === 'all') {
-    renderDrops(currentFilter);
-  }
+.drop-card {
+  background: rgba(25, 25, 35, 0.8);
+  border-radius: 20px;
+  padding: 25px;
+  position: relative;
+  overflow: hidden;
+  border: 2px solid rgba(255, 120, 196, 0.3);
+  transition: all 0.4s ease;
+  backdrop-filter: blur(10px);
 }
 
-function clearVipData() {
-  // Limpar apenas dados VIP
-  const savedData = localStorage.getItem('nekodrops_data');
-  if (savedData) {
-    try {
-      const parsedData = JSON.parse(savedData);
-      // Remover drops VIP
-      if (parsedData.drops && Array.isArray(parsedData.drops)) {
-        parsedData.drops = parsedData.drops.filter(drop => !drop.isVip);
-        localStorage.setItem('nekodrops_data', JSON.stringify(parsedData));
-        allDrops = parsedData.drops;
-      }
-    } catch (e) {
-      console.error('Erro ao limpar dados VIP:', e);
-    }
-  }
-  
-  // Atualizar interface
-  renderDrops(currentFilter);
+.drop-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 15px 35px rgba(255, 120, 196, 0.3);
+  border-color: rgba(255, 120, 196, 0.6);
 }
 
-function validateLocalStorage() {
-  // Verificar integridade dos dados
-  try {
-    const savedData = localStorage.getItem('nekodrops_data');
-    if (savedData) {
-      JSON.parse(savedData); // Isso vai lançar erro se não for JSON válido
-    }
-  } catch (e) {
-    console.warn('Dados corrompidos no localStorage, limpando...');
-    localStorage.removeItem('nekodrops_data');
-    window.location.reload();
-  }
+.drop-badge, .vip-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  padding: 8px 16px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 2;
 }
 
-function monitorLocalStorageAccess() {
-  // Monitorar tentativas de acesso direto ao localStorage
-  const originalSetItem = localStorage.setItem;
-  const originalGetItem = localStorage.getItem;
-  
-  localStorage.setItem = function(key, value) {
-    if (key === 'nekodrops_data' && typeof value === 'string') {
-      try {
-        JSON.parse(value); // Validar JSON
-      } catch (e) {
-        console.warn('Tentativa de inserir dados inválidos bloqueada');
-        return;
-      }
-    }
-    return originalSetItem.apply(this, arguments);
-  };
-  
-  localStorage.getItem = function(key) {
-    if (key === 'nekodrops_data') {
-      // Registrar acesso para debugging
-      console.log('Acesso aos dados de drops detectado');
-    }
-    return originalGetItem.apply(this, arguments);
-  };
+.drop-badge {
+  background: linear-gradient(45deg, #ff78c4, #ff4d8d);
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
 }
 
-  
-async function updateUserUI() {
-  const token = localStorage.getItem('discord_token');
-  if (!token) {
-    loginBtn.textContent = '🎮 Entrar com Discord';
-    userInfo.classList.add('hidden');
-    return;
-  }
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/user-info`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      // Salvar no estado e localStorage
-      user = { id: data.userId, username: data.username, avatar: data.avatar };
-      userRoles = data.roles || [];
-      localStorage.setItem('discord_user', JSON.stringify(user));
-      localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-
-      // Atualizar UI
-      loginBtn.textContent = '🚪 Sair';
-      username.textContent = user.username;
-      userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
-      userInfo.classList.remove('hidden');
-
-      // Autenticar socket
-      if (socket && socket.connected) {
-        socket.emit('authenticate', { token });
-      }
-    } else {
-      logout();
-    }
-  } catch (e) {
-    console.error("Erro ao buscar usuário:", e);
-    logout();
-
-  }
-}
-    
-  async function getUserInfo(token) {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/user-info`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (!res.ok) { 
-        logout(); 
-        return; 
-      }
-      
-      const data = await res.json();
-      
-      if (!data.canAccess) { 
-        showError("Você precisa ser membro do servidor."); 
-        logout(); 
-        return; 
-      }
-      
-      user = { 
-        id: data.userId, 
-        username: data.username, 
-        avatar: data.avatar 
-      };
-      
-      userRoles = data.roles || [];
-      localStorage.setItem('discord_user', JSON.stringify(user));
-      localStorage.setItem('discord_roles', JSON.stringify(userRoles));
-      updateUIAfterLogin(); 
-      loadDropsFromServer(); // Carrega do servidor após login
-    } catch (e) {
-      console.error("Erro ao obter informações do usuário:", e);
-      showError("Erro ao carregar informações do usuário.");
-    }
-  }
-
-async function loadFlagsForIPs() {
-  const flagPlaceholders = document.querySelectorAll('.flag-placeholder');
-  
-  for (const placeholder of flagPlaceholders) {
-    const ip = placeholder.getAttribute('data-ip');
-    
-    if (ip && ip !== 'N/A' && ip.trim() !== '') {
-      try {
-        // Mostrar loading
-        placeholder.innerHTML = '<span class="country-name">Carregando...</span>';
-        
-        const countryInfo = await getCountryFromIP(ip);
-        
-        if (countryInfo.flag && countryInfo.code !== 'error' && countryInfo.code !== 'invalid') {
-          placeholder.innerHTML = `
-            <img src="${countryInfo.flag}" alt="${countryInfo.name}" 
-                 class="country-flag" onerror="this.style.display='none'">
-            <span class="country-name">${countryInfo.name}</span>
-          `;
-        } else {
-          placeholder.innerHTML = `<span class="country-name">${countryInfo.name}</span>`;
-        }
-        
-      } catch (error) {
-        console.log('❌ Erro ao carregar bandeira para IP:', ip, error);
-        placeholder.innerHTML = '<span class="country-name">Desconhecido</span>';
-      }
-    } else {
-      placeholder.innerHTML = '<span class="country-name">IP inválido</span>';
-    }
-  }
+.vip-badge {
+  background: linear-gradient(45deg, #ffd166, #ffb74d);
+  color: #000;
+  box-shadow: 0 4px 15px rgba(255, 183, 77, 0.4);
 }
 
-
-function updateUIAfterLogin() {
-  loginBtn.textContent = '🚪 Sair';
-  
-  if (user) {
-    username.textContent = user.username;
-    
-    // ✅ CORREÇÃO: Verificar se tem avatar e usar fallback
-    if (user.avatar) {
-      userAvatar.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
-    } else {
-      // Fallback para avatar padrão do Discord
-      const defaultAvatarNumber = user.discriminator % 5;
-      userAvatar.src = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`;
-    }
-  }
-  
-  userInfo.classList.remove('hidden'); 
-  loginModal.style.display = 'none';
-  document.body.style.overflow = 'auto';
-
-  startPeriodicChecks();
-    
-  // Reautenticar WebSocket
-  if (socket && socket.connected) {
-    socket.emit('authenticate', {
-      userId: user.id,
-      roles: userRoles
-    });
-  }
+.drop-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 15px;
+  margin-bottom: 20px;
+  border: 2px solid rgba(255, 120, 196, 0.3);
 }
 
-  function logout() {
-  stopPeriodicChecks();
-  localStorage.clear();
-  clearDropsFromLocalStorage();
-  user = null; 
-  userRoles = [];
-  loginBtn.textContent = '🎮 Entrar com Discord';
-  userInfo.classList.add('hidden'); 
-  localStorage.removeItem('discord_token');
-  updateUserUI();
-  clearDrops(); 
-  showNoAccessMessage();
-  if (socket) { 
-    socket.disconnect(); 
-    connectionStatus.textContent = '❌ Desconectado'; 
-    connectionStatus.classList.remove('connected'); 
-  }
+.drop-title {
+  font-size: 22px;
+  margin-bottom: 12px;
+  color: #ff78c4;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-  function showError(msg) {
-    errorMessage.textContent = msg; 
-    errorModal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-  }
-
-  /* UI: render */
-function renderDrops(filter = 'all') {
-  clearDrops();
-  
-  if (!user || userRoles.length === 0) { 
-    showNoAccessMessage(); 
-    return; 
-  }
-
-  const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
-  const isOwner = userRoles.includes(OWNER_ROLE_ID);
-  
-  // 🔒 VERIFICAÇÃO DE SEGURANÇA EXTRA
-  if (filter === 'vip' && !canSeeVip) {
-    // Double-check: mesmo que o usuário tente forçar, não mostrar VIPs
-    showNoVipAccessMessage();
-    // Limpar qualquer dado VIP que possa ter vazado
-    clearVipData();
-    return;
-  }
-  
-  // Filtrar drops com base nas permissões reais
-  let filtered = allDrops.filter(drop => {
-    if (drop.isVip && !canSeeVip) return false;
-    return true;
-  });
-  
-  // Aplicar filtro adicional se necessário
-  if (filter === 'normal') {
-    filtered = filtered.filter(d => !d.isVip);
-  } else if (filter === 'vip') {
-    filtered = filtered.filter(d => d.isVip);
-  }
-  
-  if (!filtered.length) {
-    showNoDropsMessage(filter);
-    return;
-  }
-  
-  // Calcular quantas drops mostrar
-  const startIndex = 0;
-  const endIndex = currentPage * DROPS_PER_PAGE;
-  const dropsToShow = filtered.slice(startIndex, endIndex);
-  
-  // Renderizar as drops
-  dropsToShow.forEach(d => {
-    const element = createRobloxAccountElement(d, isOwner);
-    if (element) {
-      dropsGrid.appendChild(element);
-    }
-  });
-  
-  loadFlagsForIPs();
-
-    
-  updateLoadMoreButton();
+.drop-price {
+  color: #ffd166;
+  font-weight: 600;
+  margin-bottom: 15px;
+  font-size: 16px;
 }
 
-  /* Função central: cria o card respeitando os diferentes tipos de embed */
-  function createRobloxAccountElement(account, isOwner) {
-    const card = document.createElement('div');
-    card.className = 'drop-card'; 
-    card.dataset.id = account.id;
-
-    // Normaliza valores e considera "N/A" como ausente
-    const usernameVal = cleanDiscordText(account.username);
-    const passwordVal = cleanDiscordText(account.password);
-    const ipVal = cleanDiscordText(account.ip);
-    const cookieVal = cleanDiscordText(account.cookie);
-    const authVal = cleanDiscordText(account.authenticator || account.auth);
-    const recoveryVal = cleanDiscordText(account.recovery || account.recovery_codes || account.recoveryCodes);
-
-    const cleanIpVal = extractIPFromLink(ipVal);
-    console.log('✅ IP extraído:', cleanIpVal);
-
-    const isValidIp = isValidIP(cleanIpVal);
-    console.log('🎯 IP válido?', isValidIp);
-    
-    // Detecta tipo com precedência (auth > cookie+ip > ip-only > username+password)
-    let type = 'basic';
-    if (authVal) type = 'auth';
-    else if (cookieVal && ipVal) type = 'primary';
-    else if (ipVal) type = 'ip';
-    else if (usernameVal && passwordVal) type = 'credentials';
-
-    // Cabeçalho / imagem
-    const imageUrl = account.imageUrl || account.image || account.thumbnail || '';
-    const title = usernameVal || "Conta Roblox";
-    const robux = cleanDiscordText(account.robux) || "";
-    const age = cleanDiscordText(account.age) || "";
-
-    // Monta credenciais dependendo do tipo
-    let credentialsHTML = '';
-
-    // Usuário sempre aparece se existir
-    if (usernameVal) {
-      credentialsHTML += `
-        <div class="credential-item">
-          <span>👤 Usuário: </span><span class="credential-value">${usernameVal}</span>
-          <button class="copy-btn" data-value="${usernameVal}">Copiar</button>
-        </div>`;
-    }
-
-    // Senha aparece se existir
-    if (passwordVal) {
-      credentialsHTML += `
-        <div class="credential-item">
-          <span>🔑 Senha: </span><span class="credential-value">••••••••</span>
-          <button class="copy-btn" data-value="${passwordVal}">Copiar</button>
-        </div>`;
-    }
-
-if (type === 'primary') {
-  if (cleanIpVal) {
-    credentialsHTML += `
-      <div class="credential-item">
-        <span>🌐 IP: </span>
-        <div class="ip-with-flag">
-          <span class="credential-value">${cleanIpVal}</span>
-          <div class="flag-placeholder" data-ip="${cleanIpVal}">
-            <span class="country-name">Carregando...</span>
-          </div>
-        </div>
-        <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
-      </div>`;
-  }
-      if (cookieVal) {
-        credentialsHTML += `
-          <div class="credential-item">
-            <span>🍪 Cookie: </span><span class="credential-value">••••••••</span>
-            <button class="copy-btn" data-value="${cookieVal}">Copiar</button>
-          </div>`;
-      }
-    }
-
-    // Tipo auth: Auth + Recovery Codes + Cookie
-    if (type === 'auth') {
-      if (authVal) {
-        credentialsHTML += `
-          <div class="credential-item">
-            <span>📱 Auth: </span><span class="credential-value">••••••••</span>
-            <button class="copy-btn" data-value="${authVal}">Copiar</button>
-          </div>`;
-      }
-      if (recoveryVal) {
-        credentialsHTML += `
-          <div class="credential-item">
-            <span>🔓 Recovery: </span><span class="credential-value">••••••••</span>
-            <button class="copy-btn" data-value="${recoveryVal}">Copiar</button>
-          </div>`;
-      }
-      if (cookieVal) {
-        credentialsHTML += `
-          <div class="credential-item">
-            <span>🍪 Cookie: </span><span class="credential-value">••••••••</span>
-            <button class="copy-btn" data-value="${cookieVal}">Copiar</button>
-          </div>`;
-      }
-    }
-
-// Tipo ip: apenas IP
-if (type === 'ip' && cleanIpVal) {
-  credentialsHTML += `
-    <div class="credential-item">
-      <span>🌐 IP: </span>
-      <div class="ip-with-flag">
-        <span class="credential-value">${cleanIpVal}</span>
-        <div class="flag-placeholder" data-ip="${cleanIpVal}">
-          <span class="country-name">Carregando...</span>
-        </div>
-      </div>
-      <button class="copy-btn" data-value="${cleanIpVal}">Copiar</button>
-    </div>`;
+.drop-features {
+  margin-bottom: 20px;
+  padding-left: 0;
 }
 
-    // Tipo credentials: apenas username e password (já adicionados acima)
-    // Se não houver credenciais, mostra mensagem
-    if (!credentialsHTML) {
-      credentialsHTML = `<div class="credential-item"><span class="credential-value">😿 Sem credenciais disponíveis</span></div>`;
-    }
-
-    // Features da conta
-    const features = (account.features && Array.isArray(account.features) && account.features.length > 0)
-      ? account.features.map(f => `<li>${cleanDiscordText(f)}</li>`).join('')
-      : '';
-
-    card.innerHTML = `
-      ${account.isVip ? '<div class="vip-badge">✨ VIP</div>' : '<div class="drop-badge">🐾 ROBLOX</div>'}
-      ${imageUrl ? `<img src="${imageUrl}" alt="${title}" class="drop-image">` : ''}
-      <div class="drop-content">
-        <h3 class="drop-title">${title}</h3>
-        ${robux || age ? `<div class="drop-price">${robux ? robux + " Robux" : ""} ${age ? "• " + age : ""}</div>` : ''}
-        ${features ? `<ul class="drop-features">${features}</ul>` : ''}
-        <div class="account-credentials">
-          ${credentialsHTML}
-        </div>
-        ${account.description ? `<div class="drop-description">${cleanDiscordText(account.description)}</div>` : ''}
-        <div class="drop-footer">
-          <button class="claim-btn">🎮 Resgatar Agora</button>
-          ${isOwner ? '<button class="delete-btn">🗑️</button>' : ''}
-        </div>
-      </div>
-    `;
-
-    // Deletar (se for owner)
-    if (isOwner) {
-      const del = card.querySelector('.delete-btn');
-      if (del) {
-        del.addEventListener('click', () => {
-          const confirmMsg = `Deletar "${usernameVal || title}"?`;
-          if (confirm(confirmMsg)) deleteDrop(account.id);
-        });
-      }
-    }
-
-    // Botão de resgatar
-    const claimBtn = card.querySelector('.claim-btn');
-    if (claimBtn) {
-      claimBtn.addEventListener('click', () => {
-        alert(`🎉 Conta "${usernameVal || title}" resgatada com sucesso!`);
-      });
-    }
-
-    return card;
-  }
-
-function loadDrops() {
-  loadDropsFromServer();
-}
-    
-  /* Delete drop (usa token se disponível) */
-  async function deleteDrop(id) {
-    try {
-      const token = localStorage.getItem('discord_token');
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-      const res = await fetch(`${BACKEND_URL}/api/drops/${id}`, { method: 'DELETE', headers });
-      
-      if (!res.ok) throw new Error('Erro ao deletar');
-      
-      allDrops = allDrops.filter(d => d.id !== id);
-      saveDropsToLocalStorage(); // Atualiza localStorage após deletar
-      renderDrops(currentFilter);
-    } catch (e) {
-      console.error(e);
-      showError('Erro ao deletar');
-    }
-  }
-
-  /* utilidades UI */
-  function clearDrops() { 
-    dropsGrid.innerHTML = ''; 
-  }
-
-function showNoAccessMessage() {
-  const loadMoreContainer = document.getElementById('load-more-container');
-  if (loadMoreContainer) {
-    loadMoreContainer.classList.add('hidden');
-  }
-  
-  dropsGrid.innerHTML = `
-    <div class="no-drops">
-      <h3>😿 Acesso Restrito</h3>
-      <p>Você precisa fazer login e ser membro do servidor para visualizar as contas fofinhas!</p>
-    </div>
-  `;
+.drop-features li {
+  margin-bottom: 8px;
+  padding-left: 25px;
+  position: relative;
+  list-style: none;
 }
 
-function showNoVipAccessMessage() {
-  const loadMoreContainer = document.getElementById('load-more-container');
-  if (loadMoreContainer) {
-    loadMoreContainer.classList.add('hidden');
-  }
-  
-  dropsGrid.innerHTML = `
-    <div class="no-drops">
-      <h3>✨ Acesso VIP Necessário</h3>
-      <p>Você precisa ser VIP para visualizar as contas VIP fofinhas!</p>
-    </div>
-  `;
+.drop-features li:before {
+  content: '🌸 ';
+  position: absolute;
+  left: 0;
+  color: #ff78c4;
 }
 
-function showNoDropsMessage(filter = 'all') {
-  const loadMoreContainer = document.getElementById('load-more-container');
-  if (loadMoreContainer) {
-    loadMoreContainer.classList.add('hidden');
-  }
-  
-  dropsGrid.innerHTML = `
-    <div class="no-drops">
-      <h3>😿 Nenhuma conta disponível</h3>
-      <p>${filter === 'vip' ? 'Não há contas VIP fofinhas disponíveis no momento.' : 'Volte mais tarde para ver novas contas fofinhas!'}</p>
-    </div>
-  `;
+.account-credentials {
+  margin-bottom: 20px;
 }
 
-  /* filtros */
-  function setupFilters() {
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.filter === 'methods') {
-        redirectToMethods();
-        return;
-      }
-      
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentFilter = btn.dataset.filter;
-      renderDrops(currentFilter);
-    });
-  });
+.credential-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  background: rgba(255, 120, 196, 0.1);
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 120, 196, 0.2);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Migrar dados antigos primeiro
-  migrateOldStorage();
-  
-  // Configurações iniciais
-  setupFilters();
-  setupEventListeners();
-  setupCopyButtons();
-  setupModalClosing();
-  setupMobileMenu();
-  setupPagination();
-  
-  const savedDrops = loadDropsFromLocalStorage();
-  if (savedDrops.length > 0) {
-    allDrops = savedDrops;
-    renderDrops(currentFilter);
-    setTimeout(() => loadFlagsForIPs(), 1000);
+.credential-item span:first-child {
+  font-weight: 600;
+  margin-right: 8px;
+  min-width: 90px;
+  color: #ff78c4;
+}
+
+.credential-value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ip-with-flag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.country-flag {
+  width: 20px;
+  height: 15px;
+  border-radius: 2px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.country-name {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: 5px;
+}
+
+.copy-btn {
+  background: rgba(255, 120, 196, 0.3);
+  border: none;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-left: 8px;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+.copy-btn:hover {
+  background: rgba(255, 120, 196, 0.5);
+  transform: scale(1.1);
+}
+
+.drop-description {
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+}
+
+.drop-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.claim-btn {
+  background: linear-gradient(45deg, #ff78c4, #ff4d8d);
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
+}
+
+.claim-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(255, 120, 196, 0.6);
+}
+
+.delete-btn {
+  background: rgba(255, 107, 107, 0.3);
+  border: none;
+  color: #ff6b6b;
+  padding: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.delete-btn:hover {
+  background: rgba(255, 107, 107, 0.5);
+  transform: scale(1.1);
+}
+
+.no-drops {
+  text-align: center;
+  grid-column: 1 / -1;
+  padding: 60px 40px;
+  background: rgba(25, 25, 35, 0.8);
+  border-radius: 20px;
+  border: 2px dashed rgba(255, 120, 196, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.no-drops h3 {
+  color: #ff78c4;
+  margin-bottom: 15px;
+  font-size: 24px;
+}
+
+.no-drops p {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.loading {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px;
+}
+
+.loading-spinner {
+  border: 3px solid rgba(255, 120, 196, 0.3);
+  border-radius: 50%;
+  border-top: 3px solid #ff78c4;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: rgba(25, 25, 35, 0.95);
+  padding: 40px;
+  border-radius: 20px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  border: 2px solid rgba(255, 120, 196, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.modal-title {
+  margin-bottom: 20px;
+  color: #ff78c4;
+  font-size: 28px;
+}
+
+.modal-content p {
+  margin-bottom: 25px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+}
+
+.modal-btn {
+  background: linear-gradient(45deg, #ff78c4, #ff4d8d);
+  color: #fff;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
+}
+
+.modal-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(255, 120, 196, 0.6);
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 28px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mobile-menu-btn:hover {
+  color: #ff78c4;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 50px;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.7);
+  border-top: 2px solid rgba(255, 120, 196, 0.3);
+}
+
+.credential-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.credential-item .ip-with-flag {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.credential-item .copy-btn {
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+.load-more-container {
+  text-align: center;
+  margin: 30px 0;
+  padding: 20px;
+}
+
+.load-more-btn {
+  background: linear-gradient(45deg, #ff78c4, #ff4d8d);
+  color: #fff;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+}
+
+.load-more-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(255, 120, 196, 0.6);
+}
+
+.load-more-btn:disabled {
+  background: rgba(255, 120, 196, 0.3);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.load-more-btn:disabled:hover {
+  transform: none;
+  box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-20px); }
+  60% { transform: translateY(-10px); }
+}
+
+.bounce {
+  animation: bounce 2s infinite;
+}
+
+.emoji {
+  display: inline-block;
+  animation: float 3s ease-in-out infinite;
+}
+
+.emoji:nth-child(2n) {
+  animation-delay: 1s;
+}
+
+.emoji:nth-child(3n) {
+  animation-delay: 2s;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: block;
   }
   
-  // Verifica autenticação e processa resposta
-  checkAuth();
-  processAuthResponse();
-  setupWebSocket();
+  .drops-grid {
+    grid-template-columns: 1fr;
+  }
   
-  // Inicia sistema de segurança
-  setTimeout(initSecuritySystem, 2000);
-});
-  </script>
-</body>
-</html>
+  .filters {
+    flex-direction: column;
+    position: absolute;
+    top: 80px;
+    right: 20px;
+    background: rgba(25, 25, 35, 0.95);
+    padding: 20px;
+    border-radius: 15px;
+    display: none;
+    z-index: 100;
+    border: 2px solid rgba(255, 120, 196, 0.3);
+    backdrop-filter: blur(10px);
+  }
+  
+  .filters.active {
+    display: flex;
+  }
+
+  .credential-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .copy-btn {
+    margin-left: 0;
+    margin-top: 8px;
+    align-self: flex-end;
+  }
+}
