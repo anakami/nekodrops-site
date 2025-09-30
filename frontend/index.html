@@ -1199,60 +1199,150 @@ function updateUIAfterLogin() {
 
   /* UI: render */
 function renderDrops(filter = 'all') {
-  clearDrops();
-  
-  if (!user || userRoles.length === 0) { 
-    showNoAccessMessage(); 
-    return; 
-  }
-
-  const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
-  const isOwner = userRoles.includes(OWNER_ROLE_ID);
-  
-  // 🔒 VERIFICAÇÃO DE SEGURANÇA EXTRA
-  if (filter === 'vip' && !canSeeVip) {
-    // Double-check: mesmo que o usuário tente forçar, não mostrar VIPs
-    showNoVipAccessMessage();
-    // Limpar qualquer dado VIP que possa ter vazado
-    clearVipData();
-    return;
-  }
-  
-  // Filtrar drops com base nas permissões reais
-  let filtered = allDrops.filter(drop => {
-    if (drop.isVip && !canSeeVip) return false;
-    return true;
-  });
-  
-  // Aplicar filtro adicional se necessário
-  if (filter === 'normal') {
-    filtered = filtered.filter(d => !d.isVip);
-  } else if (filter === 'vip') {
-    filtered = filtered.filter(d => d.isVip);
-  }
-  
-  if (!filtered.length) {
-    showNoDropsMessage(filter);
-    return;
-  }
-  
-  // Calcular quantas drops mostrar
-  const startIndex = 0;
-  const endIndex = currentPage * DROPS_PER_PAGE;
-  const dropsToShow = filtered.slice(startIndex, endIndex);
-  
-  // Renderizar as drops
-  dropsToShow.forEach(d => {
-    const element = createRobloxAccountElement(d, isOwner);
-    if (element) {
-      dropsGrid.appendChild(element);
-    }
-  });
-  
-  loadFlagsForIPs();
-
+    // Limpar renderização anterior imediatamente
+    clearDrops();
     
-  updateLoadMoreButton();
+    if (!user || userRoles.length === 0) { 
+        showNoAccessMessage(); 
+        return; 
+    }
+
+    const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
+    
+    // 🔒 BLOQUEAR VIP SEM PERMISSÃO
+    if (filter === 'vip' && !canSeeVip) {
+        showNoVipAccessMessage();
+        return;
+    }
+    
+    // 🚀 RENDERIZAÇÃO EM LOTES - EVITA CRASH
+    let filtered = allDrops.filter(drop => {
+        if (drop.isVip && !canSeeVip) return false;
+        if (filter === 'normal') return !drop.isVip;
+        if (filter === 'vip') return drop.isVip;
+        return true;
+    });
+    
+    if (!filtered.length) {
+        showNoDropsMessage(filter);
+        return;
+    }
+    
+    // Mostrar loading para muitos itens VIP
+    if (filter === 'vip' && filtered.length > 15) {
+        dropsGrid.innerHTML = `
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>Carregando ${filtered.length} contas VIP...</p>
+            </div>
+        `;
+        
+        // Renderizar após delay para não travar
+        setTimeout(() => renderBatch(filtered), 50);
+    } else {
+        renderBatch(filtered);
+    }
+    
+    updateLoadMoreButton();
+}
+
+function renderDrops(filter = 'all') {
+    clearDrops();
+    
+    if (!user || userRoles.length === 0) { 
+        showNoAccessMessage(); 
+        return; 
+    }
+
+    const canSeeVip = userRoles.includes(VIP_ROLE_ID) || userRoles.includes(OWNER_ROLE_ID);
+    const isOwner = userRoles.includes(OWNER_ROLE_ID);
+    
+    if (filter === 'vip' && !canSeeVip) {
+        showNoVipAccessMessage();
+        return;
+    }
+    
+    let filtered = allDrops.filter(drop => {
+        if (drop.isVip && !canSeeVip) return false;
+        if (filter === 'normal') return !drop.isVip;
+        if (filter === 'vip') return drop.isVip;
+        return true;
+    });
+    
+    if (!filtered.length) {
+        showNoDropsMessage(filter);
+        return;
+    }
+    
+    const startIndex = 0;
+    const endIndex = currentPage * DROPS_PER_PAGE;
+    const dropsToShow = filtered.slice(startIndex, endIndex);
+
+    // 🚀 Renderização otimizada para muitos itens VIP
+    if (filter === 'vip' && dropsToShow.length > 10) {
+        renderVipBatch(dropsToShow, isOwner);
+    } else {
+        renderNormalBatch(dropsToShow, isOwner);
+    }
+    
+    updateLoadMoreButton();
+}
+
+// 🎯 Renderização normal (rápida)
+function renderNormalBatch(drops, isOwner) {
+    const fragment = document.createDocumentFragment();
+    
+    drops.forEach(drop => {
+        const element = createRobloxAccountElement(drop, isOwner);
+        if (element) fragment.appendChild(element);
+    });
+    
+    dropsGrid.appendChild(fragment);
+    loadFlagsForIPs();
+}
+
+// 🚀 Renderização VIP em lotes (evita crash)
+function renderVipBatch(drops, isOwner) {
+    const BATCH_SIZE = 8;
+    const DELAY = 50;
+    let currentIndex = 0;
+    
+    // Mostrar loading
+    dropsGrid.innerHTML = `
+        <div class="loading">
+            <div class="loading-spinner"></div>
+            <p>Carregando ${drops.length} contas VIP...</p>
+        </div>
+    `;
+    
+    function processNextBatch() {
+        const batchEnd = Math.min(currentIndex + BATCH_SIZE, drops.length);
+        const batch = drops.slice(currentIndex, batchEnd);
+        
+        // Limpar loading no primeiro lote
+        if (currentIndex === 0) {
+            clearDrops();
+        }
+        
+        const fragment = document.createDocumentFragment();
+        batch.forEach(drop => {
+            const element = createRobloxAccountElement(drop, isOwner);
+            if (element) fragment.appendChild(element);
+        });
+        
+        dropsGrid.appendChild(fragment);
+        currentIndex = batchEnd;
+        
+        if (currentIndex < drops.length) {
+            setTimeout(processNextBatch, DELAY);
+        } else {
+            // Finalizar - carregar bandeiras
+            loadFlagsForIPs();
+        }
+    }
+    
+    // Iniciar renderização em lote
+    setTimeout(processNextBatch, DELAY);
 }
 
   /* Função central: cria o card respeitando os diferentes tipos de embed */
