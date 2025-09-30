@@ -13,6 +13,7 @@ body {
   overflow-x: hidden;
 }
 
+/* Fundo com imagem e overlay */
 body::before {
   content: '';
   position: fixed;
@@ -20,19 +21,23 @@ body::before {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), url('assets/pc.jpg') no-repeat center center fixed;
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
+              url('assets/pc.jpg') no-repeat center center fixed;
   background-size: cover;
   z-index: -2;
   filter: blur(4px) brightness(0.8);
 }
 
+/* Para dispositivos móveis */
 @media (max-width: 768px) {
   body::before {
-    background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), url('assets/mobile.jpg') no-repeat center center fixed;
+    background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
+                url('assets/mobile.jpg') no-repeat center center fixed;
     background-size: cover;
   }
 }
 
+/* Efeito de partículas kawaii */
 .kawaii-particle {
   position: fixed;
   font-size: 24px;
@@ -52,11 +57,11 @@ body::before {
   right: 10px;
   padding: 8px 12px;
   border-radius: 20px;
-  font-weight: 700;
+  font-weight: bold;
   z-index: 1000;
   font-size: 12px;
   background: #ff6b6b;
-  color: #fff;
+  color: white;
   box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
 }
 
@@ -124,7 +129,7 @@ header {
 
 .login-btn {
   background: linear-gradient(45deg, #ff78c4, #ff4d8d);
-  color: #fff;
+  color: white;
   border: none;
   padding: 12px 24px;
   border-radius: 50px;
@@ -234,6 +239,7 @@ header {
   margin-bottom: 12px;
   color: #ff78c4;
   font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .drop-price {
@@ -291,6 +297,7 @@ header {
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* mostrar bandeira ip */
 .ip-with-flag {
   display: flex;
   align-items: center;
@@ -343,7 +350,7 @@ header {
 
 .claim-btn {
   background: linear-gradient(45deg, #ff78c4, #ff4d8d);
-  color: #fff;
+  color: white;
   border: none;
   padding: 12px 24px;
   border-radius: 50px;
@@ -453,7 +460,7 @@ header {
 
 .modal-btn {
   background: linear-gradient(45deg, #ff78c4, #ff4d8d);
-  color: #fff;
+  color: white;
   border: none;
   padding: 14px 28px;
   border-radius: 50px;
@@ -472,7 +479,7 @@ header {
   display: none;
   background: none;
   border: none;
-  color: #fff;
+  color: white;
   font-size: 28px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -490,6 +497,26 @@ header {
   border-top: 2px solid rgba(255, 120, 196, 0.3);
 }
 
+.credential-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; 
+  flex-wrap: wrap;               
+}
+
+.credential-item .ip-with-flag {
+  flex: 1;                       
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;                  
+}
+
+.credential-item .copy-btn {
+  flex-shrink: 0;                
+  margin-left: 10px;
+}
+
 .load-more-container {
   text-align: center;
   margin: 30px 0;
@@ -498,7 +525,7 @@ header {
 
 .load-more-btn {
   background: linear-gradient(45deg, #ff78c4, #ff4d8d);
-  color: #fff;
+  color: white;
   border: none;
   padding: 15px 30px;
   border-radius: 50px;
@@ -528,16 +555,22 @@ header {
   box-shadow: 0 4px 15px rgba(255, 120, 196, 0.4);
 }
 
+.hidden {
+  display: none;
+}
+
+/* Animações extras */
 @keyframes bounce {
-  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-20px); }
-  60% { transform: translateY(-10px); }
+  0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+  40% {transform: translateY(-20px);}
+  60% {transform: translateY(-10px);}
 }
 
 .bounce {
   animation: bounce 2s infinite;
 }
 
+/* Emojis flutuantes */
 .emoji {
   display: inline-block;
   animation: float 3s ease-in-out infinite;
